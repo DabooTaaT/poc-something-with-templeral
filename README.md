@@ -186,27 +186,61 @@ Response ตัวอย่าง:
 - Go 1.22+
 - Docker + Docker Compose
 
-### Start infra (Postgres + Temporal)
-ตัวอย่าง:
+### Configuration
+
+**Backend (.env):**
 ```bash
+cd backend
+# สร้างไฟล์ .env
+cat > .env << EOF
+API_PORT=8080
+DATABASE_URL=postgres://workflow_user:workflow_pass@localhost:5432/workflow_db?sslmode=disable
+TEMPORAL_HOST=localhost:7233
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+EOF
+```
+
+**Frontend (.env.local):**
+```bash
+cd frontend
+# สร้างไฟล์ .env.local
+cat > .env.local << EOF
+NEXT_PUBLIC_API_URL=http://localhost:8080
+NEXT_PUBLIC_API_WITH_CREDENTIALS=true
+NEXT_PUBLIC_API_TIMEOUT=30000
+EOF
+```
+
+### Start infra (Postgres + Temporal)
+```bash
+cd backend
 docker compose up -d
 ```
 
 ### Run API (Go Gin)
 ```bash
-go run ./cmd/api
+cd backend
+go run ./cmd/api/main.go
 ```
 
 ### Run Temporal worker
 ```bash
-go run ./cmd/worker
+cd backend
+go run ./cmd/worker/main.go
 ```
 
 ### Run Frontend (NextJS)
 ```bash
+cd frontend
 npm install
 npm run dev
 ```
+
+### Access Services
+- **Frontend:** http://localhost:3000
+- **Backend API:** http://localhost:8080
+- **Temporal UI:** http://localhost:8088
+- **PostgreSQL:** localhost:5432
 
 ---
 
@@ -221,6 +255,53 @@ npm run dev
 
 ---
 
+## Documentation
+
+- **[CORS Setup Guide](./CORS_SETUP.md)** - การตั้งค่า CORS ระหว่าง Frontend และ Backend
+- **[Middleware Setup Guide](./MIDDLEWARE_SETUP.md)** - รายละเอียด Middleware ทั้ง Frontend และ Backend
+- **[Frontend README](./frontend/README.md)** - เอกสาร Frontend โดยละเอียด
+- **[Backend README](./backend/README.md)** - เอกสาร Backend โดยละเอียด
+
+## Features Implemented
+
+### Core Features
+✅ Visual workflow builder with React Flow  
+✅ Drag & drop nodes (Start, HTTP, Output)  
+✅ Save and load workflows  
+✅ Execute workflows via Temporal  
+✅ Real-time execution results  
+✅ DAG validation (no cycles, connectivity)  
+
+### Advanced Features
+✅ **CORS Configuration** - Secure cross-origin communication  
+✅ **Request/Response Middleware** - Enhanced logging and error handling  
+✅ **Edge Middleware** - Security headers and performance optimization  
+✅ **Error Handling** - User-friendly error messages  
+✅ **API Interceptors** - Request/response transformation  
+✅ **Timeout Management** - Configurable timeouts per operation  
+
+## Troubleshooting
+
+### CORS Errors
+ถ้าเจอ CORS error:
+1. ตรวจสอบว่า Backend กำลังรันอยู่ที่ `http://localhost:8080`
+2. ตรวจสอบว่า `CORS_ALLOWED_ORIGINS` ใน Backend `.env` มี `http://localhost:3000`
+3. ตรวจสอบว่า Frontend `.env.local` มี `NEXT_PUBLIC_API_URL=http://localhost:8080`
+4. ดูรายละเอียดเพิ่มเติมใน [CORS_SETUP.md](./CORS_SETUP.md)
+
+### Network Errors
+ถ้าเจอ Network error:
+1. ตรวจสอบว่า Backend API รันอยู่
+2. ลอง curl ทดสอบ: `curl http://localhost:8080/health`
+3. ตรวจสอบ Browser Console สำหรับ error details
+
+### Database Connection Errors
+ถ้าเจอ Database error:
+1. ตรวจสอบว่า PostgreSQL รันอยู่: `docker ps`
+2. ทดสอบ connection: `docker exec -it workflow_postgres psql -U workflow_user -d workflow_db`
+3. ตรวจสอบ DATABASE_URL ใน `.env`
+
 ## Notes / Assumptions
-- POC เน้น “ครบ flow end-to-end” มากกว่า UX
+- POC เน้น "ครบ flow end-to-end" มากกว่า UX
 - รองรับ workflow เส้นตรงตามโจทย์เป็นขั้นต่ำ ก่อนค่อยขยายเป็น DAG หลาย branch
+- CORS และ Middleware ถูกตั้งค่าให้พร้อม production-ready
