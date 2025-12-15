@@ -47,15 +47,14 @@ type StartNodeData struct {
 
 // HttpNodeData represents data for HTTP node
 type HttpNodeData struct {
-	URL     string                 `json:"url"`
-	Method  string                 `json:"method"`
-	Headers map[string]string      `json:"headers,omitempty"`
-	Query   map[string]string      `json:"query,omitempty"`
-	Body    interface{}            `json:"body,omitempty"`
+	URL     string            `json:"url"`
+	Method  string            `json:"method"`
+	Headers map[string]string `json:"headers,omitempty"`
+	Query   map[string]string `json:"query,omitempty"`
+	Body    interface{}       `json:"body,omitempty"`
 }
 
 // OutputNodeData represents data for output node
 type OutputNodeData struct {
 	Label string `json:"label,omitempty"`
 }
-

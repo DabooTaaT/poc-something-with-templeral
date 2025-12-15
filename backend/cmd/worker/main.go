@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"os"
 	"os/signal"
@@ -11,6 +12,8 @@ import (
 	"go.temporal.io/sdk/worker"
 
 	"github.com/your-org/n8n-clone/internal/temporal"
+
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -24,6 +27,20 @@ func main() {
 	if temporalHost == "" {
 		temporalHost = "localhost:7233"
 	}
+
+	// Database connection (used by activities)
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		log.Fatal("DATABASE_URL is required")
+	}
+	db, err := sql.Open("postgres", databaseURL)
+	if err != nil {
+		log.Fatal("Failed to connect to database:", err)
+	}
+	if err := db.Ping(); err != nil {
+		log.Fatal("Database ping failed:", err)
+	}
+	defer db.Close()
 
 	// Connect to Temporal server
 	temporalClient, err := client.Dial(client.Options{
@@ -41,7 +58,7 @@ func main() {
 	w.RegisterWorkflow(temporal.DAGWorkflow)
 
 	// Register activities
-	activities := &temporal.Activities{}
+	activities := &temporal.Activities{DB: db}
 	w.RegisterActivity(activities.HttpRequestActivity)
 	w.RegisterActivity(activities.LoadDAGActivity)
 	w.RegisterActivity(activities.StoreExecutionResultActivity)
@@ -64,4 +81,3 @@ func main() {
 	w.Stop()
 	log.Println("Worker stopped")
 }
-

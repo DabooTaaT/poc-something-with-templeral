@@ -1,24 +1,27 @@
 package handlers
 
 import (
+	"database/sql"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
+
 	"github.com/your-org/n8n-clone/internal/db/models"
+	"github.com/your-org/n8n-clone/internal/service"
 )
 
 // WorkflowHandler handles workflow-related requests
 type WorkflowHandler struct {
-	// DB connection, service layer, etc.
+	WorkflowService *service.WorkflowService
 }
 
 // CreateWorkflow handles POST /workflows
 func (h *WorkflowHandler) CreateWorkflow(c *gin.Context) {
 	var req struct {
-		Name  string               `json:"name" binding:"required"`
-		Nodes []models.Node        `json:"nodes" binding:"required"`
-		Edges []models.Edge        `json:"edges" binding:"required"`
+		Name  string        `json:"name" binding:"required"`
+		Nodes []models.Node `json:"nodes" binding:"required"`
+		Edges []models.Edge `json:"edges" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -26,32 +29,32 @@ func (h *WorkflowHandler) CreateWorkflow(c *gin.Context) {
 		return
 	}
 
-	// TODO: Validate DAG using pkg/dag validation
-	// TODO: Save workflow to database
-	// TODO: Return workflow ID
-
-	// Placeholder response
-	workflowID := uuid.New().String()
-	c.JSON(http.StatusCreated, gin.H{
-		"id":   workflowID,
-		"name": req.Name,
+	wf, err := h.WorkflowService.CreateWorkflow(c.Request.Context(), req.Name, models.DAGStructure{
+		Nodes: req.Nodes,
+		Edges: req.Edges,
 	})
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, wf)
 }
 
 // GetWorkflow handles GET /workflows/:id
 func (h *WorkflowHandler) GetWorkflow(c *gin.Context) {
 	workflowID := c.Param("id")
 
-	// TODO: Query workflow from database by ID
-	// TODO: Return workflow or 404
-
-	// Placeholder response
-	c.JSON(http.StatusOK, gin.H{
-		"id":   workflowID,
-		"name": "Sample Workflow",
-		"nodes": []gin.H{},
-		"edges": []gin.H{},
-	})
+	wf, err := h.WorkflowService.GetWorkflow(c.Request.Context(), workflowID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "workflow not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, wf)
 }
 
 // UpdateWorkflow handles PUT /workflows/:id
@@ -69,25 +72,39 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 		return
 	}
 
-	// TODO: Validate DAG
-	// TODO: Update workflow in database
-	// TODO: Return updated workflow
+	var dagStruct *models.DAGStructure
+	if req.Nodes != nil || req.Edges != nil {
+		ds := models.DAGStructure{Nodes: req.Nodes, Edges: req.Edges}
+		dagStruct = &ds
+	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"id":   workflowID,
-		"name": req.Name,
-	})
+	wf, err := h.WorkflowService.UpdateWorkflow(c.Request.Context(), workflowID, req.Name, dagStruct)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "workflow not found"})
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, wf)
 }
 
 // ListWorkflows handles GET /workflows
 func (h *WorkflowHandler) ListWorkflows(c *gin.Context) {
-	// TODO: Query all workflows from database
-	// TODO: Support pagination
+	limitStr := c.DefaultQuery("limit", "50")
+	offsetStr := c.DefaultQuery("offset", "0")
+	limit, _ := strconv.Atoi(limitStr)
+	offset, _ := strconv.Atoi(offsetStr)
 
-	// Placeholder response
+	workflows, err := h.WorkflowService.ListWorkflows(c.Request.Context(), limit, offset)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"workflows": []gin.H{},
-		"total":     0,
+		"items": workflows,
+		"total": len(workflows),
 	})
 }
-

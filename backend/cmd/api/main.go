@@ -1,14 +1,19 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"go.temporal.io/sdk/client"
+
+	_ "github.com/lib/pq"
 
 	"github.com/your-org/n8n-clone/internal/api/handlers"
 	"github.com/your-org/n8n-clone/internal/api/middleware"
+	"github.com/your-org/n8n-clone/internal/service"
 )
 
 func main() {
@@ -23,23 +28,30 @@ func main() {
 		port = "8080"
 	}
 
-	// TODO: Initialize database connection
-	// db, err := sql.Open("postgres", os.Getenv("DATABASE_URL"))
-	// if err != nil {
-	//     log.Fatal("Failed to connect to database:", err)
-	// }
-	// defer db.Close()
+	// Initialize database connection
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		log.Fatal("DATABASE_URL is required")
+	}
+	db, err := sql.Open("postgres", databaseURL)
+	if err != nil {
+		log.Fatal("Failed to connect to database:", err)
+	}
+	if err := db.Ping(); err != nil {
+		log.Fatal("Database ping failed:", err)
+	}
+	defer db.Close()
 
-	// TODO: Initialize Temporal client
-	// temporalHost := os.Getenv("TEMPORAL_HOST")
-	// if temporalHost == "" {
-	//     temporalHost = "localhost:7233"
-	// }
-	// temporalClient, err := client.Dial(client.Options{HostPort: temporalHost})
-	// if err != nil {
-	//     log.Fatal("Failed to connect to Temporal:", err)
-	// }
-	// defer temporalClient.Close()
+	// Initialize Temporal client
+	temporalHost := os.Getenv("TEMPORAL_HOST")
+	if temporalHost == "" {
+		temporalHost = "localhost:7233"
+	}
+	temporalClient, err := client.Dial(client.Options{HostPort: temporalHost})
+	if err != nil {
+		log.Fatal("Failed to connect to Temporal:", err)
+	}
+	defer temporalClient.Close()
 
 	// Setup Gin router
 	router := gin.Default()
@@ -47,9 +59,13 @@ func main() {
 	// Add middleware
 	router.Use(middleware.CORS())
 
+	// Initialize services
+	workflowSvc := service.NewWorkflowService(db)
+	executionSvc := service.NewExecutionService(db, temporalClient)
+
 	// Initialize handlers
-	workflowHandler := &handlers.WorkflowHandler{}
-	executionHandler := &handlers.ExecutionHandler{}
+	workflowHandler := &handlers.WorkflowHandler{WorkflowService: workflowSvc}
+	executionHandler := &handlers.ExecutionHandler{ExecutionService: executionSvc}
 
 	// Register routes
 	v1 := router.Group("/api/v1")
@@ -77,4 +93,3 @@ func main() {
 		log.Fatal("Failed to start server:", err)
 	}
 }
-

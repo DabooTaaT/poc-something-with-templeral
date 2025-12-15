@@ -32,9 +32,9 @@ API_PORT=8080
 ```
 
 ### 3. Run Migrations
+Apply the SQL in `internal/db/migrations/001_init_schema.sql` (psql example):
 ```bash
-# TODO: Add migration tool (e.g., golang-migrate)
-# For now, manually create tables using SQL in internal/db/migrations/
+psql "$DATABASE_URL" -f internal/db/migrations/001_init_schema.sql
 ```
 
 ### 4. Start Temporal Worker
@@ -95,10 +95,35 @@ go fmt ./...
 golangci-lint run
 ```
 
-## Next Steps
-1. Implement database models and migrations
-2. Implement DAG validation utilities
-3. Implement Temporal workflows and activities
-4. Implement API handlers
-5. Add comprehensive tests
+## Manual Test Flow (E2E)
+1) Create workflow  
+```bash
+curl -X POST http://localhost:8080/api/v1/workflows \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "sample http",
+    "nodes": [
+      { "id": "start-1", "type": "start", "position": {"x":0,"y":0}, "data": {} },
+      { "id": "http-1", "type": "http", "position": {"x":200,"y":0}, "data": { "url": "https://httpbin.org/get", "method": "GET" } },
+      { "id": "out-1", "type": "output", "position": {"x":400,"y":0}, "data": {} }
+    ],
+    "edges": [
+      { "id": "e1", "source": "start-1", "target": "http-1" },
+      { "id": "e2", "source": "http-1", "target": "out-1" }
+    ]
+  }'
+```
+2) Run workflow  
+```bash
+curl -X POST http://localhost:8080/api/v1/workflows/<workflowId>/run
+```
+3) Poll execution  
+```bash
+curl http://localhost:8080/api/v1/executions/<executionId>
+```
+
+## Notes
+- Temporal task queue: `workflow-task-queue`
+- Status lifecycle: PENDING -> RUNNING -> COMPLETED/FAILED
+- Results stored in `executions.result_json`
 

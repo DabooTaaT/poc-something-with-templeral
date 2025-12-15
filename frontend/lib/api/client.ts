@@ -1,7 +1,16 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosError } from 'axios';
 import { Workflow, Execution } from '../types/dag';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API_BASE_URL = rawBaseUrl.replace(/\/+$/, ''); // strip trailing slash
+const API_WITH_CREDENTIALS = process.env.NEXT_PUBLIC_API_WITH_CREDENTIALS === 'true';
+
+// Runtime guard to surface misconfig early
+if (!process.env.NEXT_PUBLIC_API_URL) {
+  console.warn('[apiClient] NEXT_PUBLIC_API_URL not set, defaulting to http://localhost:8080');
+} else if (!/^https?:\/\//i.test(API_BASE_URL)) {
+  console.warn(`[apiClient] NEXT_PUBLIC_API_URL looks invalid: ${API_BASE_URL}`);
+}
 
 class APIClient {
   private client: AxiosInstance;
@@ -9,10 +18,23 @@ class APIClient {
   constructor() {
     this.client = axios.create({
       baseURL: `${API_BASE_URL}/api/v1`,
+      withCredentials: API_WITH_CREDENTIALS,
       headers: {
         'Content-Type': 'application/json',
       },
     });
+
+    this.client.interceptors.response.use(
+      (res) => res,
+      (error: AxiosError) => {
+        // Normalize network/CORS errors to easier message
+        if (!error.response) {
+          const message = error.message || 'Network error';
+          return Promise.reject(new Error(`Network error: ${message}`));
+        }
+        return Promise.reject(error);
+      }
+    );
   }
 
   // Workflow API methods

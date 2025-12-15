@@ -2,16 +2,20 @@ package temporal
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
+	"time"
+
+	"github.com/your-org/n8n-clone/internal/db/models"
 )
 
 // Activities struct holds dependencies for activities
 type Activities struct {
-	// DB connection, logger, etc.
+	DB *sql.DB
 }
 
 // HttpRequestInput represents input for HTTP request activity
@@ -94,21 +98,33 @@ func (a *Activities) HttpRequestActivity(ctx context.Context, input HttpRequestI
 
 // LoadDAGActivity loads a workflow DAG from the database
 func (a *Activities) LoadDAGActivity(ctx context.Context, workflowID string) (string, error) {
-	// TODO: Query database to load workflow by ID
-	// Return DAG JSON string
-	return "", fmt.Errorf("LoadDAGActivity not implemented")
+	row := a.DB.QueryRowContext(ctx, `SELECT dag_json FROM workflows WHERE id = $1`, workflowID)
+	var dagJSON string
+	if err := row.Scan(&dagJSON); err != nil {
+		return "", err
+	}
+	return dagJSON, nil
 }
 
 // StoreExecutionResultActivity stores execution result in the database
 func (a *Activities) StoreExecutionResultActivity(ctx context.Context, executionID string, result interface{}) error {
-	// TODO: Update execution record in database
-	// Set status = COMPLETED, result_json = result, finished_at = now
-	return fmt.Errorf("StoreExecutionResultActivity not implemented")
+	resultJSON, err := json.Marshal(result)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	_, err = a.DB.ExecContext(ctx, `UPDATE executions SET status = $1, result_json = $2, finished_at = $3 WHERE id = $4`,
+		models.StatusCompleted, string(resultJSON), now, executionID)
+	return err
 }
 
 // UpdateExecutionStatusActivity updates execution status in the database
 func (a *Activities) UpdateExecutionStatusActivity(ctx context.Context, executionID string, status string) error {
-	// TODO: Update execution status in database
-	return fmt.Errorf("UpdateExecutionStatusActivity not implemented")
+	now := time.Now().UTC()
+	if status == string(models.StatusCompleted) || status == string(models.StatusFailed) {
+		_, err := a.DB.ExecContext(ctx, `UPDATE executions SET status = $1, finished_at = $2 WHERE id = $3`, status, now, executionID)
+		return err
+	}
+	_, err := a.DB.ExecContext(ctx, `UPDATE executions SET status = $1 WHERE id = $2`, status, executionID)
+	return err
 }
-

@@ -1,7 +1,11 @@
 package dag
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/your-org/n8n-clone/internal/db/models"
 )
 
@@ -72,20 +76,52 @@ func ValidateDAG(dag *models.DAGStructure) ValidationResult {
 
 // TopologicalSort performs topological sorting on the DAG
 func TopologicalSort(nodes []models.Node, edges []models.Edge) ([]string, error) {
-	// TODO: Implement Kahn's algorithm or DFS-based topological sort
-	// This is a placeholder implementation
-	nodeIDs := make([]string, len(nodes))
-	for i, node := range nodes {
-		nodeIDs[i] = node.ID
+	inDegree := make(map[string]int)
+	graph := make(map[string][]string)
+
+	for _, node := range nodes {
+		inDegree[node.ID] = 0
 	}
-	return nodeIDs, nil
+
+	for _, edge := range edges {
+		graph[edge.Source] = append(graph[edge.Source], edge.Target)
+		inDegree[edge.Target]++
+	}
+
+	var queue []string
+	for id, deg := range inDegree {
+		if deg == 0 {
+			queue = append(queue, id)
+		}
+	}
+
+	var order []string
+	for len(queue) > 0 {
+		// pop first
+		current := queue[0]
+		queue = queue[1:]
+		order = append(order, current)
+
+		for _, neighbor := range graph[current] {
+			inDegree[neighbor]--
+			if inDegree[neighbor] == 0 {
+				queue = append(queue, neighbor)
+			}
+		}
+	}
+
+	if len(order) != len(nodes) {
+		return nil, errors.New("topological sort failed: graph may contain cycles")
+	}
+
+	return order, nil
 }
 
 // GetNodeByID retrieves a node by its ID
 func GetNodeByID(nodeID string, nodes []models.Node) *models.Node {
-	for _, node := range nodes {
-		if node.ID == nodeID {
-			return &node
+	for i := range nodes {
+		if nodes[i].ID == nodeID {
+			return &nodes[i]
 		}
 	}
 	return nil
@@ -113,15 +149,70 @@ func hasIncomingEdge(nodeID string, edges []models.Edge) bool {
 }
 
 func hasCycle(nodes []models.Node, edges []models.Edge) bool {
-	// TODO: Implement cycle detection using DFS
-	// Placeholder: return false for now
+	graph := make(map[string][]string)
+	for _, edge := range edges {
+		graph[edge.Source] = append(graph[edge.Source], edge.Target)
+	}
+
+	visited := make(map[string]bool)
+	recStack := make(map[string]bool)
+
+	var dfs func(string) bool
+	dfs = func(node string) bool {
+		if recStack[node] {
+			return true
+		}
+		if visited[node] {
+			return false
+		}
+
+		visited[node] = true
+		recStack[node] = true
+
+		for _, neighbor := range graph[node] {
+			if dfs(neighbor) {
+				return true
+			}
+		}
+
+		recStack[node] = false
+		return false
+	}
+
+	for _, node := range nodes {
+		if dfs(node.ID) {
+			return true
+		}
+	}
+
 	return false
 }
 
 func findPath(sourceID, targetID string, edges []models.Edge) bool {
-	// TODO: Implement path finding using BFS or DFS
-	// Placeholder: return true for now
-	return true
+	graph := make(map[string][]string)
+	for _, edge := range edges {
+		graph[edge.Source] = append(graph[edge.Source], edge.Target)
+	}
+
+	visited := make(map[string]bool)
+	var dfs func(string) bool
+	dfs = func(current string) bool {
+		if current == targetID {
+			return true
+		}
+		if visited[current] {
+			return false
+		}
+		visited[current] = true
+		for _, neighbor := range graph[current] {
+			if dfs(neighbor) {
+				return true
+			}
+		}
+		return false
+	}
+
+	return dfs(sourceID)
 }
 
 func validateNodeData(node models.Node) []string {
@@ -129,12 +220,25 @@ func validateNodeData(node models.Node) []string {
 
 	switch node.Type {
 	case "http":
-		// TODO: Parse node.Data as HttpNodeData and validate
-		// Check: URL not empty, method is valid HTTP method
-		// For now, basic validation
 		if node.Data == nil {
 			errors = append(errors, fmt.Sprintf("HTTP node '%s' missing data", node.ID))
+			return errors
 		}
+
+		httpData, err := parseHttpNodeData(node.Data)
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("HTTP node '%s' invalid data: %v", node.ID, err))
+			return errors
+		}
+
+		if strings.TrimSpace(httpData.URL) == "" {
+			errors = append(errors, fmt.Sprintf("HTTP node '%s' requires a URL", node.ID))
+		}
+
+		if !isValidHTTPMethod(httpData.Method) {
+			errors = append(errors, fmt.Sprintf("HTTP node '%s' has invalid method '%s'", node.ID, httpData.Method))
+		}
+
 	case "start":
 		// Start nodes typically don't need validation
 	case "output":
@@ -146,3 +250,35 @@ func validateNodeData(node models.Node) []string {
 	return errors
 }
 
+func parseHttpNodeData(data interface{}) (*models.HttpNodeData, error) {
+	switch v := data.(type) {
+	case models.HttpNodeData:
+		return &v, nil
+	case map[string]interface{}:
+		bytes, err := json.Marshal(v)
+		if err != nil {
+			return nil, err
+		}
+		var parsed models.HttpNodeData
+		if err := json.Unmarshal(bytes, &parsed); err != nil {
+			return nil, err
+		}
+		// Default method
+		if parsed.Method == "" {
+			parsed.Method = "GET"
+		}
+		parsed.Method = strings.ToUpper(parsed.Method)
+		return &parsed, nil
+	default:
+		return nil, fmt.Errorf("unsupported http node data type %T", data)
+	}
+}
+
+func isValidHTTPMethod(method string) bool {
+	switch strings.ToUpper(method) {
+	case "GET", "POST", "PUT", "DELETE", "PATCH":
+		return true
+	default:
+		return false
+	}
+}

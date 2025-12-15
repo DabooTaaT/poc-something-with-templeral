@@ -115,21 +115,40 @@ export default function Home() {
   }, [selectedNode, deleteNode]);
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-screen flex-col bg-gradient-to-br from-gray-50 via-white to-gray-100">
       {/* Header */}
-      <header className="border-b border-gray-200 bg-white px-6 py-4 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Workflow Builder</h1>
-          <p className="text-sm text-gray-600">
-            Build and execute workflow DAGs
-          </p>
-        </div>
+      <header className="border-b border-gray-200/80 bg-white/80 backdrop-blur-sm shadow-sm px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-4">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
+            <svg
+              className="w-6 h-6 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            </svg>
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+              Workflow Builder
+            </h1>
+            <p className="text-sm text-gray-600">
+              Build and execute workflow DAGs
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
           <input
             type="text"
             value={workflowName}
             onChange={(e) => setWorkflowName(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
             placeholder="Workflow name"
           />
           <Button onClick={handleSaveWorkflow} disabled={isLoading}>
@@ -147,15 +166,29 @@ export default function Home() {
 
       {/* Validation Errors */}
       {validationErrors.length > 0 && (
-        <div className="bg-red-50 border-l-4 border-red-400 p-4">
-          <div className="flex">
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">
+        <div className="bg-gradient-to-r from-red-50 to-red-100 border-l-4 border-red-500 p-4 shadow-sm animate-slide-down">
+          <div className="flex items-start gap-3">
+            <svg
+              className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-red-900">
                 Validation Errors
               </h3>
-              <ul className="mt-2 text-sm text-red-700 list-disc list-inside">
+              <ul className="mt-2 text-sm text-red-800 space-y-1">
                 {validationErrors.map((error, idx) => (
-                  <li key={idx}>{error}</li>
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="text-red-600">•</span>
+                    <span>{error}</span>
+                  </li>
                 ))}
               </ul>
             </div>
@@ -166,40 +199,112 @@ export default function Home() {
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-64 bg-white border-r border-gray-200 p-4 overflow-y-auto">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+        <aside className="w-72 bg-white/90 backdrop-blur-sm border-r border-gray-200/80 p-6 overflow-y-auto shadow-sm">
+          <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+            <svg
+              className="w-5 h-5 text-gray-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+              />
+            </svg>
             Add Nodes
           </h2>
           <div className="space-y-3">
-            <Button
+            <button
               onClick={() => handleAddNode("start")}
-              variant="success"
-              className="w-full"
+              className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 font-medium group"
             >
-              + Start Node
-            </Button>
-            <Button
+              <svg
+                className="w-5 h-5 group-hover:scale-110 transition-transform"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              Start Node
+            </button>
+            <button
               onClick={() => handleAddNode("http")}
-              variant="primary"
-              className="w-full"
+              className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 font-medium group"
             >
-              + HTTP Node
-            </Button>
-            <Button
+              <svg
+                className="w-5 h-5 group-hover:scale-110 transition-transform"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                />
+              </svg>
+              HTTP Node
+            </button>
+            <button
               onClick={() => handleAddNode("output")}
-              variant="secondary"
-              className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+              className="w-full px-4 py-3 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 font-medium group"
             >
-              + Output Node
-            </Button>
+              <svg
+                className="w-5 h-5 group-hover:scale-110 transition-transform"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+              Output Node
+            </button>
           </div>
 
           {selectedNode && (
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <svg
+                  className="w-4 h-4 text-gray-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"
+                  />
+                </svg>
                 Selected Node
               </h3>
-              <p className="text-xs text-gray-600 mb-3">{selectedNode.type}</p>
+              <div className="px-3 py-2 bg-gray-50 rounded-lg mb-3">
+                <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">
+                  {selectedNode.type}
+                </p>
+              </div>
               <div className="space-y-2">
                 <Button
                   onClick={() => setShowConfigPanel(true)}
@@ -222,12 +327,40 @@ export default function Home() {
 
           {/* Execution Status */}
           {status !== "idle" && (
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <svg
+                  className="w-4 h-4 text-gray-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                  />
+                </svg>
                 Execution
               </h3>
-              <div className="text-xs text-gray-600 mb-2">
-                Status: <span className="font-semibold">{status}</span>
+              <div className="px-3 py-2 bg-gray-50 rounded-lg mb-3">
+                <div className="text-xs text-gray-600 flex items-center justify-between">
+                  <span>Status:</span>
+                  <span
+                    className={`font-semibold px-2 py-1 rounded ${
+                      status === "completed"
+                        ? "bg-green-100 text-green-700"
+                        : status === "running"
+                        ? "bg-yellow-100 text-yellow-700"
+                        : status === "failed"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    {status}
+                  </span>
+                </div>
               </div>
               {execution && (
                 <Button
@@ -281,12 +414,58 @@ export default function Home() {
       )}
 
       {/* Footer */}
-      <footer className="border-t border-gray-200 bg-white px-6 py-2 text-sm text-gray-600">
+      <footer className="border-t border-gray-200/80 bg-white/80 backdrop-blur-sm px-6 py-3 text-sm text-gray-600 shadow-sm">
         <div className="flex justify-between items-center">
-          <span>
-            Nodes: {nodes.length} | Edges: {edges.length}
-          </span>
-          {error && <span className="text-red-600">Error: {error}</span>}
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-2">
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+              <span className="font-medium">
+                Nodes: <span className="text-gray-900">{nodes.length}</span>
+              </span>
+            </span>
+            <span className="flex items-center gap-2">
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                />
+              </svg>
+              <span className="font-medium">
+                Edges: <span className="text-gray-900">{edges.length}</span>
+              </span>
+            </span>
+          </div>
+          {error && (
+            <span className="flex items-center gap-2 text-red-600">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span>Error: {error}</span>
+            </span>
+          )}
         </div>
       </footer>
     </div>

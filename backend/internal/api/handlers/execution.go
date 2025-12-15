@@ -1,30 +1,36 @@
 package handlers
 
 import (
+	"database/sql"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
+
+	"github.com/your-org/n8n-clone/internal/service"
 )
 
 // ExecutionHandler handles execution-related requests
 type ExecutionHandler struct {
-	// Temporal client, DB connection, etc.
+	ExecutionService *service.ExecutionService
 }
 
 // RunWorkflow handles POST /workflows/:id/run
 func (h *ExecutionHandler) RunWorkflow(c *gin.Context) {
 	workflowID := c.Param("id")
 
-	// TODO: Validate workflow exists
-	// TODO: Create execution record in database (status = PENDING)
-	// TODO: Start Temporal workflow execution
-	// TODO: Return execution ID
+	execID, err := h.ExecutionService.StartExecution(c.Request.Context(), workflowID)
+	if err != nil {
+		if err == service.ErrWorkflowNotFound || err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "workflow not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-	// Placeholder response
-	executionID := uuid.New().String()
 	c.JSON(http.StatusAccepted, gin.H{
-		"execution_id": executionID,
+		"execution_id": execID,
 		"workflow_id":  workflowID,
 		"status":       "PENDING",
 	})
@@ -34,34 +40,36 @@ func (h *ExecutionHandler) RunWorkflow(c *gin.Context) {
 func (h *ExecutionHandler) GetExecution(c *gin.Context) {
 	executionID := c.Param("id")
 
-	// TODO: Query execution from database by ID
-	// TODO: Return execution object or 404
-
-	// Placeholder response
-	c.JSON(http.StatusOK, gin.H{
-		"id":          executionID,
-		"workflow_id": "sample-workflow-id",
-		"status":      "COMPLETED",
-		"result": gin.H{
-			"data": "Sample result",
-		},
-		"started_at":  "2024-01-01T00:00:00Z",
-		"finished_at": "2024-01-01T00:00:10Z",
-	})
+	exec, err := h.ExecutionService.GetExecution(c.Request.Context(), executionID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "execution not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, exec)
 }
 
 // ListExecutions handles GET /workflows/:id/executions
 func (h *ExecutionHandler) ListExecutions(c *gin.Context) {
 	workflowID := c.Param("id")
 
-	// TODO: Query executions for workflow from database
-	// TODO: Support pagination
+	limitStr := c.DefaultQuery("limit", "50")
+	offsetStr := c.DefaultQuery("offset", "0")
+	limit, _ := strconv.Atoi(limitStr)
+	offset, _ := strconv.Atoi(offsetStr)
 
-	// Placeholder response
+	execs, err := h.ExecutionService.ListExecutions(c.Request.Context(), workflowID, limit, offset)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"workflow_id": workflowID,
-		"executions":  []gin.H{},
-		"total":       0,
+		"executions":  execs,
+		"total":       len(execs),
 	})
 }
-

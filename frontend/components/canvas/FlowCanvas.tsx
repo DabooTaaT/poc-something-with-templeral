@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useMemo } from "react";
 import ReactFlow, {
   Node,
   Edge,
@@ -48,30 +48,25 @@ export function FlowCanvas({
   const [nodes, setNodes, onNodesChangeInternal] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChangeInternal] = useEdgesState(initialEdges);
 
-  // Track node/edge IDs to detect structural changes (add/remove)
-  const prevNodeIdsRef = useRef<string>(
-    JSON.stringify(initialNodes.map((n) => n.id).sort())
-  );
-  const prevEdgeIdsRef = useRef<string>(
-    JSON.stringify(initialEdges.map((e) => e.id).sort())
-  );
+  // Sync from parent when any node/edge changes (including data/position)
+  const nodesSignature = useMemo(() => JSON.stringify(initialNodes), [initialNodes]);
+  const edgesSignature = useMemo(() => JSON.stringify(initialEdges), [initialEdges]);
+  const prevNodesSigRef = useRef<string>(nodesSignature);
+  const prevEdgesSigRef = useRef<string>(edgesSignature);
 
-  // Sync with parent state only when structure changes (nodes/edges added/removed)
   useEffect(() => {
-    const currentNodeIds = JSON.stringify(initialNodes.map((n) => n.id).sort());
-    if (currentNodeIds !== prevNodeIdsRef.current) {
-      prevNodeIdsRef.current = currentNodeIds;
+    if (nodesSignature !== prevNodesSigRef.current) {
+      prevNodesSigRef.current = nodesSignature;
       setNodes(initialNodes);
     }
-  }, [initialNodes, setNodes]);
+  }, [nodesSignature, initialNodes, setNodes]);
 
   useEffect(() => {
-    const currentEdgeIds = JSON.stringify(initialEdges.map((e) => e.id).sort());
-    if (currentEdgeIds !== prevEdgeIdsRef.current) {
-      prevEdgeIdsRef.current = currentEdgeIds;
+    if (edgesSignature !== prevEdgesSigRef.current) {
+      prevEdgesSigRef.current = edgesSignature;
       setEdges(initialEdges);
     }
-  }, [initialEdges, setEdges]);
+  }, [edgesSignature, initialEdges, setEdges]);
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -125,7 +120,7 @@ export function FlowCanvas({
   );
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/30">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -139,11 +134,32 @@ export function FlowCanvas({
         nodesConnectable={true}
         elementsSelectable={true}
         fitView
-        className="bg-gray-50"
+        className="bg-transparent"
+        defaultEdgeOptions={{
+          style: { strokeWidth: 2.5 },
+          animated: true,
+        }}
       >
-        <Background />
-        <Controls />
-        <MiniMap />
+        <Background
+          gap={20}
+          size={1.5}
+          color="#cbd5e1"
+          className="opacity-40"
+        />
+        <Controls
+          className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg"
+          showInteractive={false}
+        />
+        <MiniMap
+          className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg"
+          nodeColor={(node) => {
+            if (node.type === "start") return "#10b981";
+            if (node.type === "http") return "#3b82f6";
+            if (node.type === "output") return "#f97316";
+            return "#6b7280";
+          }}
+          maskColor="rgba(0, 0, 0, 0.1)"
+        />
       </ReactFlow>
     </div>
   );
