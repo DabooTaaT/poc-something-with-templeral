@@ -151,7 +151,7 @@ export default function Home() {
             type="text"
             value={workflowName}
             onChange={(e) => setWorkflowName(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all text-gray-900 bg-white"
             placeholder="Workflow name"
           />
           <Button onClick={handleSaveWorkflow} disabled={isLoading}>

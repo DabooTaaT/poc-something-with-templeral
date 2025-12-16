@@ -110,3 +110,58 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+/* React Flow pane styling - remove borders */
+.react-flow__pane {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.react-flow__renderer {
+  border: none !important;
+  outline: none !important;
+  border: none !important;
+}
+
+.react-flow {
+  border: none !important;
+  outline: none !important;
+}
+
+/* Remove black border from ReactFlow selected nodes */
+.react-flow__node.selected {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.react-flow__node-selected {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.react-flow__node[data-selected="true"] {
+  border: none !important;
+  outline: none !important;
+}
+
+/* Remove border from node wrapper */
+.react-flow__node {
+  border: none !important;
+  outline: none !important;
+}
+
+.react-flow__node > div {
+  border: none !important;
+  outline: none !important;
+}
+
+/* Remove border from specific node types */
+.react-flow__node[data-id*="output"],
+.react-flow__node[data-id*="start"],
+.react-flow__node[data-id*="http"] {
+  border: none !important;
+  outline: none !important;
+}
+

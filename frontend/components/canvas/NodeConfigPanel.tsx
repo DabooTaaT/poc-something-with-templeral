@@ -164,7 +164,7 @@ export function NodeConfigPanel({
                 <select
                   value={(formData as HttpNodeData)?.method || "GET"}
                   onChange={(e) => handleChange("method", e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all bg-white"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all bg-white text-gray-900"
                   required
                 >
                   <option value="GET">GET</option>
@@ -196,7 +196,7 @@ export function NodeConfigPanel({
                   type="url"
                   value={(formData as HttpNodeData)?.url || ""}
                   onChange={(e) => handleChange("url", e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all text-gray-900 bg-white"
                   placeholder="https://api.example.com/endpoint"
                   required
                 />
@@ -233,7 +233,7 @@ export function NodeConfigPanel({
                       // Invalid JSON, keep as is
                     }
                   }}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm shadow-sm transition-all bg-gray-50"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm shadow-sm transition-all bg-gray-50 text-gray-900"
                   rows={4}
                   placeholder='{\n  "Content-Type": "application/json"\n}'
                 />
@@ -270,7 +270,7 @@ export function NodeConfigPanel({
                       // Invalid JSON, keep as is
                     }
                   }}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm shadow-sm transition-all bg-gray-50"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm shadow-sm transition-all bg-gray-50 text-gray-900"
                   rows={3}
                   placeholder='{\n  "key": "value"\n}'
                 />
