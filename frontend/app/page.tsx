@@ -34,7 +34,10 @@ export default function Home() {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   const handleAddNode = useCallback(
-    (type: "start" | "http" | "output", position?: { x: number; y: number }) => {
+    (
+      type: "start" | "http" | "output",
+      position?: { x: number; y: number }
+    ) => {
       const nodePosition = position || {
         x: Math.random() * 300 + 100,
         y: Math.random() * 300 + 100,

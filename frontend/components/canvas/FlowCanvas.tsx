@@ -297,7 +297,8 @@ export function FlowCanvas({
         // Performance optimizations
         onlyRenderVisibleElements={true} // Enable for better performance
         selectNodesOnDrag={false}
-        panOnDrag={[1, 2]} // Allow pan with middle/right mouse button, left button drags nodes
+        panOnDrag={true} // Allow pan with left mouse button when not dragging nodes
+        panOnScroll={true} // Allow pan with scroll wheel
         preventScrolling={false}
         // Additional performance settings
         minZoom={0.1}
