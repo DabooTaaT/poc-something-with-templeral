@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
-import { Workflow, Execution, WorkflowListResponse } from '../types/dag';
+import { Workflow, Execution, WorkflowListResponse, WorkflowVersion, WorkflowVersionListResponse } from '../types/dag';
 
 // Error response type from backend
 interface ErrorResponse {
@@ -166,6 +166,23 @@ class APIClient {
 
   async listExecutions(workflowId: string): Promise<{ executions: Execution[]; total: number }> {
     const response = await this.client.get(`/workflows/${workflowId}/executions`);
+    return response.data;
+  }
+
+  // Workflow Version API methods
+
+  async listWorkflowVersions(workflowId: string): Promise<WorkflowVersionListResponse> {
+    const response = await this.client.get(`/workflows/${workflowId}/versions`);
+    return response.data;
+  }
+
+  async getWorkflowVersion(workflowId: string, versionNumber: number): Promise<WorkflowVersion> {
+    const response = await this.client.get(`/workflows/${workflowId}/versions/${versionNumber}`);
+    return response.data;
+  }
+
+  async restoreWorkflowVersion(workflowId: string, versionNumber: number): Promise<Workflow> {
+    const response = await this.client.post(`/workflows/${workflowId}/restore/${versionNumber}`);
     return response.data;
   }
 }

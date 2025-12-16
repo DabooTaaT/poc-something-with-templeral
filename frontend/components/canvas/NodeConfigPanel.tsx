@@ -66,7 +66,66 @@ export function NodeConfigPanel({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (node && formData) {
-      onSave(node.id, formData);
+      // For HTTP nodes, ensure headers, query, and body are properly parsed from textareas
+      if (isHttpNode(node)) {
+        const httpData = formData as HttpNodeData;
+        const finalData: HttpNodeData = {
+          ...httpData,
+        };
+
+        // Parse headers from textarea
+        try {
+          const parsedHeaders = JSON.parse(headersText);
+          if (
+            typeof parsedHeaders === "object" &&
+            parsedHeaders !== null &&
+            !Array.isArray(parsedHeaders)
+          ) {
+            finalData.headers = parsedHeaders;
+          } else {
+            finalData.headers = {};
+          }
+        } catch {
+          // If invalid JSON, try to use existing headers or empty object
+          finalData.headers = httpData.headers || {};
+        }
+
+        // Parse query from textarea
+        try {
+          const parsedQuery = JSON.parse(queryText);
+          if (
+            typeof parsedQuery === "object" &&
+            parsedQuery !== null &&
+            !Array.isArray(parsedQuery)
+          ) {
+            finalData.query = parsedQuery;
+          } else {
+            finalData.query = {};
+          }
+        } catch {
+          // If invalid JSON, try to use existing query or empty object
+          finalData.query = httpData.query || {};
+        }
+
+        // Parse body from textarea (for POST, PUT, PATCH)
+        if (
+          httpData.method === "POST" ||
+          httpData.method === "PUT" ||
+          httpData.method === "PATCH"
+        ) {
+          try {
+            const parsedBody = JSON.parse(bodyText);
+            finalData.body = parsedBody;
+          } catch {
+            // If not valid JSON, store as string
+            finalData.body = bodyText;
+          }
+        }
+
+        onSave(node.id, finalData);
+      } else {
+        onSave(node.id, formData);
+      }
       onClose();
     }
   };

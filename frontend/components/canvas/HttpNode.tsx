@@ -13,10 +13,11 @@ const methodColors: Record<string, string> = {
 
 export function HttpNode({ data, selected }: NodeProps<HttpNodeData>) {
   const method = data.method || "GET";
+  const url = data.url || "";
   const truncatedUrl =
-    data.url.length > 35
-      ? `${data.url.substring(0, 35)}...`
-      : data.url || "No URL";
+    url && url.length > 35
+      ? `${url.substring(0, 35)}...`
+      : url || "No URL";
 
   return (
     <div

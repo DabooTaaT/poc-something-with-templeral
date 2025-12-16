@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Workflow, Node, Edge } from '@/lib/types/dag';
+import { Workflow, Node, Edge, WorkflowVersion } from '@/lib/types/dag';
 import { validateDAG } from '@/lib/dag/validation';
 import { apiClient } from '@/lib/api/client';
 
@@ -9,6 +9,9 @@ export function useWorkflow() {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [versions, setVersions] = useState<WorkflowVersion[]>([]);
+  const [currentVersion, setCurrentVersion] = useState<number>(0);
+  const [isLoadingVersions, setIsLoadingVersions] = useState(false);
 
   const loadWorkflow = useCallback(async (id: string): Promise<Workflow | null> => {
     setIsLoading(true);
@@ -41,6 +44,7 @@ export function useWorkflow() {
       const parsedWf: Workflow = {
         id: wf.id,
         name: wf.name,
+        version: wf.version,
         nodes,
         edges,
         createdAt: wf.createdAt,
@@ -50,6 +54,9 @@ export function useWorkflow() {
       setWorkflow(parsedWf);
       setNodes(nodes);
       setEdges(edges);
+      if (wf.version !== undefined) {
+        setCurrentVersion(wf.version);
+      }
       return parsedWf;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load workflow';
@@ -82,6 +89,13 @@ export function useWorkflow() {
         setWorkflow(updated);
         setNodes(Array.isArray(updated.nodes) ? updated.nodes : []);
         setEdges(Array.isArray(updated.edges) ? updated.edges : []);
+        if (updated.version !== undefined) {
+          setCurrentVersion(updated.version);
+        }
+        // Refresh versions list after save
+        if (workflow.id) {
+          loadVersions(workflow.id);
+        }
         return updated.id ?? workflow.id;
       }
 
@@ -141,11 +155,82 @@ export function useWorkflow() {
     return validateDAG(wf);
   }, [nodes, edges, workflow]);
 
+  const loadVersions = useCallback(async (workflowId: string): Promise<WorkflowVersion[]> => {
+    setIsLoadingVersions(true);
+    setError(null);
+    try {
+      const response = await apiClient.listWorkflowVersions(workflowId);
+      setVersions(response.versions);
+      setCurrentVersion(response.currentVersion);
+      return response.versions;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load versions';
+      setError(errorMessage);
+      return [];
+    } finally {
+      setIsLoadingVersions(false);
+    }
+  }, []);
+
+  const loadVersion = useCallback(async (workflowId: string, versionNumber: number): Promise<WorkflowVersion | null> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const version = await apiClient.getWorkflowVersion(workflowId, versionNumber);
+      return version;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load version';
+      setError(errorMessage);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const restoreVersion = useCallback(async (workflowId: string, versionNumber: number): Promise<Workflow | null> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const restored = await apiClient.restoreWorkflowVersion(workflowId, versionNumber);
+      
+      // Update workflow state with restored data
+      const parsedWf: Workflow = {
+        id: restored.id,
+        name: restored.name,
+        version: restored.version,
+        nodes: Array.isArray(restored.nodes) ? restored.nodes : [],
+        edges: Array.isArray(restored.edges) ? restored.edges : [],
+        createdAt: restored.createdAt,
+        updatedAt: restored.updatedAt,
+      };
+      
+      setWorkflow(parsedWf);
+      setNodes(parsedWf.nodes);
+      setEdges(parsedWf.edges);
+      if (restored.version !== undefined) {
+        setCurrentVersion(restored.version);
+      }
+      
+      // Refresh versions list
+      await loadVersions(workflowId);
+      
+      return parsedWf;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to restore version';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [loadVersions]);
+
   const reset = useCallback(() => {
     setWorkflow(null);
     setNodes([]);
     setEdges([]);
     setError(null);
+    setVersions([]);
+    setCurrentVersion(0);
   }, []);
 
   return {
@@ -154,6 +239,9 @@ export function useWorkflow() {
     edges,
     isLoading,
     error,
+    versions,
+    currentVersion,
+    isLoadingVersions,
     loadWorkflow,
     saveWorkflow,
     addNode,
@@ -165,6 +253,9 @@ export function useWorkflow() {
     reset,
     setNodes,
     setEdges,
+    loadVersions,
+    loadVersion,
+    restoreVersion,
   };
 }
 

@@ -46,11 +46,28 @@ export interface Edge {
 export interface Workflow {
   id?: string;
   name: string;
-  version?: string;
+  version?: number;
   nodes: Node[];
   edges: Edge[];
   createdAt?: string;
   updatedAt?: string;
+}
+
+// WorkflowVersion interface for version history
+export interface WorkflowVersion {
+  id: string;
+  workflowId: string;
+  versionNumber: number;
+  name: string;
+  nodes?: Node[];
+  edges?: Edge[];
+  createdAt: string;
+}
+
+export interface WorkflowVersionListResponse {
+  versions: WorkflowVersion[];
+  total: number;
+  currentVersion: number;
 }
 
 // Execution interface

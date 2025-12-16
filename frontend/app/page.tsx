@@ -6,6 +6,7 @@ import { ReactFlowProvider } from "reactflow";
 import { FlowCanvas } from "@/components/canvas/FlowCanvas";
 import { NodeConfigPanel } from "@/components/canvas/NodeConfigPanel";
 import { ExecutionResult } from "@/components/execution/ExecutionResult";
+import { VersionHistory } from "@/components/workflow/VersionHistory";
 import { Button } from "@/components/ui/Button";
 import { useWorkflow } from "@/hooks/useWorkflow";
 import { useExecution } from "@/hooks/useExecution";
@@ -61,6 +62,11 @@ export default function Home() {
     setEdges,
     loadWorkflow,
     reset,
+    versions,
+    currentVersion,
+    isLoadingVersions,
+    loadVersions,
+    restoreVersion,
   } = useWorkflow();
 
   const { execution, status, runWorkflow, clearExecution, pollExecution } =
@@ -69,6 +75,7 @@ export default function Home() {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [showConfigPanel, setShowConfigPanel] = useState(false);
   const [showExecutionResult, setShowExecutionResult] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [workflowName, setWorkflowName] = useState("My Workflow");
   const [isWorkflowNameDirty, setIsWorkflowNameDirty] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -355,6 +362,22 @@ export default function Home() {
     [pollExecution]
   );
 
+  const handleRefreshVersions = useCallback(async () => {
+    if (workflow?.id) {
+      await loadVersions(workflow.id);
+    }
+  }, [workflow?.id, loadVersions]);
+
+  const handleRestoreVersion = useCallback(
+    async (versionNumber: number) => {
+      if (!workflow?.id) return;
+      await restoreVersion(workflow.id, versionNumber);
+      setLastPersistedSnapshot(createSnapshot(workflowName, nodes, edges));
+      setIsWorkflowNameDirty(false);
+    },
+    [workflow?.id, restoreVersion, workflowName, nodes, edges]
+  );
+
   const historyPlaceholder = (
     <div className="rounded-lg border border-dashed border-gray-300 bg-white px-4 py-6 text-center text-sm text-gray-600">
       <p className="font-medium text-gray-900">No saved workflows yet</p>
@@ -407,6 +430,20 @@ export default function Home() {
             <span className="px-3 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">
               Unsaved changes
             </span>
+          )}
+          {workflow?.id && currentVersion > 0 && (
+            <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+              v{currentVersion}
+            </span>
+          )}
+          {workflow?.id && (
+            <Button
+              onClick={() => setShowVersionHistory(true)}
+              variant="outline"
+              size="sm"
+            >
+              Versions
+            </Button>
           )}
           <Button onClick={handleSaveWorkflow} disabled={isLoading}>
             {isLoading ? "Saving..." : "Save"}
@@ -786,6 +823,19 @@ export default function Home() {
             setShowExecutionResult(false);
             clearExecution();
           }}
+        />
+      )}
+
+      {workflow?.id && (
+        <VersionHistory
+          isOpen={showVersionHistory}
+          onClose={() => setShowVersionHistory(false)}
+          workflowId={workflow.id}
+          versions={versions}
+          currentVersion={currentVersion}
+          isLoading={isLoadingVersions}
+          onRestore={handleRestoreVersion}
+          onRefresh={handleRefreshVersions}
         />
       )}
 

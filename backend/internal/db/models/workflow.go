@@ -9,6 +9,17 @@ type Workflow struct {
 	DAGJson   string    `json:"dag_json" db:"dag_json"` // JSON string containing nodes and edges
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+	Version   *int      `json:"version,omitempty" db:"-"` // Current version number (not stored in DB, calculated)
+}
+
+// WorkflowVersion represents a historical version of a workflow
+type WorkflowVersion struct {
+	ID            string    `json:"id" db:"id"`
+	WorkflowID    string    `json:"workflowId" db:"workflow_id"`
+	VersionNumber int       `json:"versionNumber" db:"version_number"`
+	Name          string    `json:"name" db:"name"`
+	DAGJson       string    `json:"dag_json" db:"dag_json"` // JSON string containing nodes and edges
+	CreatedAt     time.Time `json:"createdAt" db:"created_at"`
 }
 
 // DAGStructure represents the structure of a workflow DAG

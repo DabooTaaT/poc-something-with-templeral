@@ -72,13 +72,14 @@ export function FlowCanvas({
       return;
     }
 
-    // Create a stable key for comparison
+    // Create a stable key for comparison - include data to detect data changes
     const nodesKey = JSON.stringify(
       initialNodes.map((n) => ({
         id: n.id,
         type: n.type,
         x: n.position.x,
         y: n.position.y,
+        data: n.data, // Include data to detect changes
       }))
     );
 

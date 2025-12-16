@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -22,6 +23,7 @@ type workflowResponse struct {
 	Name      string        `json:"name"`
 	Nodes     []models.Node `json:"nodes"`
 	Edges     []models.Edge `json:"edges"`
+	Version   *int          `json:"version,omitempty"`
 	CreatedAt time.Time     `json:"createdAt"`
 	UpdatedAt time.Time     `json:"updatedAt"`
 }
@@ -37,6 +39,7 @@ func (h *WorkflowHandler) toWorkflowResponse(wf *models.Workflow) (*workflowResp
 		Name:      wf.Name,
 		Nodes:     dagStruct.Nodes,
 		Edges:     dagStruct.Edges,
+		Version:   wf.Version,
 		CreatedAt: wf.CreatedAt,
 		UpdatedAt: wf.UpdatedAt,
 	}, nil
@@ -169,4 +172,110 @@ func (h *WorkflowHandler) ListWorkflows(c *gin.Context) {
 		"limit":  limit,
 		"offset": offset,
 	})
+}
+
+// ListVersions handles GET /workflows/:id/versions
+func (h *WorkflowHandler) ListVersions(c *gin.Context) {
+	workflowID := c.Param("id")
+
+	versions, currentVersion, err := h.WorkflowService.ListWorkflowVersions(c.Request.Context(), workflowID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Convert to response format
+	type versionResponse struct {
+		ID            string    `json:"id"`
+		WorkflowID    string    `json:"workflowId"`
+		VersionNumber int       `json:"versionNumber"`
+		Name          string    `json:"name"`
+		CreatedAt     time.Time `json:"createdAt"`
+	}
+
+	versionResponses := make([]versionResponse, len(versions))
+	for i, v := range versions {
+		versionResponses[i] = versionResponse{
+			ID:            v.ID,
+			WorkflowID:    v.WorkflowID,
+			VersionNumber: v.VersionNumber,
+			Name:          v.Name,
+			CreatedAt:     v.CreatedAt,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"versions":      versionResponses,
+		"total":         len(versions),
+		"currentVersion": currentVersion,
+	})
+}
+
+// GetVersion handles GET /workflows/:id/versions/:version
+func (h *WorkflowHandler) GetVersion(c *gin.Context) {
+	workflowID := c.Param("id")
+	versionStr := c.Param("version")
+
+	versionNumber, err := strconv.Atoi(versionStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid version number"})
+		return
+	}
+
+	version, err := h.WorkflowService.GetWorkflowVersion(c.Request.Context(), workflowID, versionNumber)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "version not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Parse DAG structure
+	var dagStruct models.DAGStructure
+	if err := json.Unmarshal([]byte(version.DAGJson), &dagStruct); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse version dag"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"id":            version.ID,
+		"workflowId":    version.WorkflowID,
+		"versionNumber": version.VersionNumber,
+		"name":          version.Name,
+		"nodes":         dagStruct.Nodes,
+		"edges":         dagStruct.Edges,
+		"createdAt":     version.CreatedAt,
+	})
+}
+
+// RestoreVersion handles POST /workflows/:id/restore/:version
+func (h *WorkflowHandler) RestoreVersion(c *gin.Context) {
+	workflowID := c.Param("id")
+	versionStr := c.Param("version")
+
+	versionNumber, err := strconv.Atoi(versionStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid version number"})
+		return
+	}
+
+	wf, err := h.WorkflowService.RestoreWorkflowVersion(c.Request.Context(), workflowID, versionNumber)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "version not found"})
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp, err := h.toWorkflowResponse(wf)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse workflow dag"})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
 }

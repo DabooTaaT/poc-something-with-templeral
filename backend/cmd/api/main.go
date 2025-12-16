@@ -76,6 +76,11 @@ func main() {
 		v1.PUT("/workflows/:id", workflowHandler.UpdateWorkflow)
 		v1.GET("/workflows", workflowHandler.ListWorkflows)
 
+		// Workflow version routes
+		v1.GET("/workflows/:id/versions", workflowHandler.ListVersions)
+		v1.GET("/workflows/:id/versions/:version", workflowHandler.GetVersion)
+		v1.POST("/workflows/:id/restore/:version", workflowHandler.RestoreVersion)
+
 		// Execution routes
 		v1.POST("/workflows/:id/run", executionHandler.RunWorkflow)
 		v1.GET("/executions/:id", executionHandler.GetExecution)

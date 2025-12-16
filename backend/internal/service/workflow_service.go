@@ -71,6 +71,13 @@ func (s *WorkflowService) GetWorkflow(ctx context.Context, id string) (*models.W
 		}
 		return nil, err
 	}
+
+	// Get current version number
+	currentVersion, err := s.getCurrentVersionNumber(ctx, id)
+	if err == nil && currentVersion > 0 {
+		wf.Version = &currentVersion
+	}
+
 	return &wf, nil
 }
 
@@ -175,8 +182,60 @@ func (s *WorkflowService) ListWorkflows(ctx context.Context, limit, offset int, 
 	return summaries, total, nil
 }
 
+// getCurrentVersionNumber returns the current version number for a workflow
+func (s *WorkflowService) getCurrentVersionNumber(ctx context.Context, workflowID string) (int, error) {
+	var maxVersion sql.NullInt64
+	err := s.DB.QueryRowContext(ctx,
+		`SELECT COALESCE(MAX(version_number), 0) FROM workflow_versions WHERE workflow_id = $1`,
+		workflowID,
+	).Scan(&maxVersion)
+	if err != nil {
+		return 0, err
+	}
+	if !maxVersion.Valid {
+		return 0, nil
+	}
+	return int(maxVersion.Int64), nil
+}
+
+// saveWorkflowVersion saves the current state of a workflow as a version
+func (s *WorkflowService) saveWorkflowVersion(ctx context.Context, wf *models.Workflow) error {
+	currentVersion, err := s.getCurrentVersionNumber(ctx, wf.ID)
+	if err != nil {
+		return err
+	}
+
+	newVersion := currentVersion + 1
+	versionID := uuid.New().String()
+
+	_, err = s.DB.ExecContext(ctx,
+		`INSERT INTO workflow_versions (id, workflow_id, version_number, name, dag_json, created_at) VALUES ($1, $2, $3, $4, $5, $6)`,
+		versionID,
+		wf.ID,
+		newVersion,
+		wf.Name,
+		wf.DAGJson,
+		time.Now().UTC(),
+	)
+	return err
+}
+
 // UpdateWorkflow updates a workflow record and re-validates the DAG
+// It automatically saves the current state as a version before updating
 func (s *WorkflowService) UpdateWorkflow(ctx context.Context, id, name string, dagStruct *models.DAGStructure) (*models.Workflow, error) {
+	// Get current workflow to save as version
+	currentWF, err := s.GetWorkflow(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Save current state as version (only if DAG is being updated)
+	if dagStruct != nil {
+		if err := s.saveWorkflowVersion(ctx, currentWF); err != nil {
+			return nil, fmt.Errorf("failed to save workflow version: %w", err)
+		}
+	}
+
 	var dagJSON string
 	if dagStruct != nil {
 		validation := dag.ValidateDAG(dagStruct)
@@ -204,7 +263,18 @@ func (s *WorkflowService) UpdateWorkflow(ctx context.Context, id, name string, d
 		}
 	}
 
-	return s.GetWorkflow(ctx, id)
+	updatedWF, err := s.GetWorkflow(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set current version number
+	currentVersion, err := s.getCurrentVersionNumber(ctx, id)
+	if err == nil && currentVersion > 0 {
+		updatedWF.Version = &currentVersion
+	}
+
+	return updatedWF, nil
 }
 
 // ParseWorkflowDAG parses dag_json from workflow to structure
@@ -214,6 +284,111 @@ func (s *WorkflowService) ParseWorkflowDAG(wf *models.Workflow) (*models.DAGStru
 		return nil, err
 	}
 	return &dagStruct, nil
+}
+
+// ListWorkflowVersions returns all versions for a workflow
+func (s *WorkflowService) ListWorkflowVersions(ctx context.Context, workflowID string) ([]models.WorkflowVersion, int, error) {
+	rows, err := s.DB.QueryContext(ctx,
+		`SELECT id, workflow_id, version_number, name, dag_json, created_at 
+		 FROM workflow_versions 
+		 WHERE workflow_id = $1 
+		 ORDER BY version_number DESC`,
+		workflowID,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var versions []models.WorkflowVersion
+	for rows.Next() {
+		var v models.WorkflowVersion
+		if err := rows.Scan(&v.ID, &v.WorkflowID, &v.VersionNumber, &v.Name, &v.DAGJson, &v.CreatedAt); err != nil {
+			return nil, 0, err
+		}
+		versions = append(versions, v)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	// Get current version number
+	currentVersion, err := s.getCurrentVersionNumber(ctx, workflowID)
+	if err != nil {
+		currentVersion = 0
+	}
+
+	return versions, currentVersion, nil
+}
+
+// GetWorkflowVersion returns a specific version of a workflow
+func (s *WorkflowService) GetWorkflowVersion(ctx context.Context, workflowID string, versionNumber int) (*models.WorkflowVersion, error) {
+	row := s.DB.QueryRowContext(ctx,
+		`SELECT id, workflow_id, version_number, name, dag_json, created_at 
+		 FROM workflow_versions 
+		 WHERE workflow_id = $1 AND version_number = $2`,
+		workflowID,
+		versionNumber,
+	)
+
+	var v models.WorkflowVersion
+	if err := row.Scan(&v.ID, &v.WorkflowID, &v.VersionNumber, &v.Name, &v.DAGJson, &v.CreatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, sql.ErrNoRows
+		}
+		return nil, err
+	}
+
+	return &v, nil
+}
+
+// RestoreWorkflowVersion restores a workflow to a specific version
+// It saves the current state as a new version before restoring
+func (s *WorkflowService) RestoreWorkflowVersion(ctx context.Context, workflowID string, versionNumber int) (*models.Workflow, error) {
+	// Get the version to restore
+	versionToRestore, err := s.GetWorkflowVersion(ctx, workflowID, versionNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get current workflow and save it as a version
+	currentWF, err := s.GetWorkflow(ctx, workflowID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Save current state as version before restoring
+	if err := s.saveWorkflowVersion(ctx, currentWF); err != nil {
+		return nil, fmt.Errorf("failed to save current workflow as version: %w", err)
+	}
+
+	// Restore the workflow from the version
+	now := time.Now().UTC()
+	_, err = s.DB.ExecContext(ctx,
+		`UPDATE workflows SET name = $1, dag_json = $2, updated_at = $3 WHERE id = $4`,
+		versionToRestore.Name,
+		versionToRestore.DAGJson,
+		now,
+		workflowID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get updated workflow
+	restoredWF, err := s.GetWorkflow(ctx, workflowID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set current version number
+	currentVersion, err := s.getCurrentVersionNumber(ctx, workflowID)
+	if err == nil && currentVersion > 0 {
+		restoredWF.Version = &currentVersion
+	}
+
+	return restoredWF, nil
 }
 
 func joinErrors(errs []string) string {
