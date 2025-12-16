@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import CodeMirror from "@uiw/react-codemirror";
+import { javascript } from "@codemirror/lang-javascript";
+import { oneDark } from "@codemirror/theme-one-dark";
 import {
   Node,
   NodeData,
@@ -426,56 +429,44 @@ export function NodeConfigPanel({
                   </svg>
                   JavaScript Code
                 </label>
-                <textarea
-                  value={(formData as CodeNodeData)?.code || ""}
-                  onChange={(e) => handleChange("code", e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm shadow-sm transition-all bg-gray-50 text-gray-900"
-                  rows={12}
-                  placeholder={`// Example: Transform response data
-// Available variables: 'response' and 'data' (both contain the previous node's output)
+                <div className="border border-gray-300 rounded-lg overflow-hidden shadow-sm focus-within:ring-2 focus-within:ring-purple-500 focus-within:border-transparent transition-all">
+                  <CodeMirror
+                    value={(formData as CodeNodeData)?.code || ""}
+                    onChange={(value) => handleChange("code", value)}
+                    height="300px"
+                    extensions={[javascript({ jsx: false })]}
+                    theme={oneDark}
+                    basicSetup={{
+                      lineNumbers: true,
+                      foldGutter: true,
+                      dropCursor: false,
+                      allowMultipleSelections: false,
+                      indentOnInput: true,
+                      bracketMatching: true,
+                      closeBrackets: true,
+                      autocompletion: true,
+                      highlightSelectionMatches: true,
+                      tabSize: 2,
+                    }}
+                    placeholder={`// Example: Transform response data
+// Available variables: 'response' and 'data'
 
-// IMPORTANT: HTTP Node response structure:
-// {
-//   "status_code": 200,
-//   "data": { "data": {...}, "status": {...} },
-//   "body": "..."
-// }
-// So use response.data.data to access the actual data!
-
-// Example 1: Extract from HTTP response (correct way)
-const httpData = response && response.data && response.data.data;
-if (httpData) {
-  return {
-    name: httpData.name,
-    lastName: httpData.lastName
-  };
-}
-return {};
-
-// Example 2: Direct access (if you know the structure)
-return {
-  name: response.data.data.name,
-  lastName: response.data.data.lastName
-};
-
-// Example 3: Safe access with fallback
+// For HTTP Node (object response):
 const data = response && response.data && response.data.data;
-return {
-  name: data ? data.name : null,
-  title: data ? data.title : null
-};
+if (data) {
+  return { name: data.name, lastName: data.lastName };
+}
 
-// Example 4: Array methods (only work on arrays!)
-// const items = response && response.data && response.data.data;
-// if (Array.isArray(items)) {
-//   return items.map(item => item.name);
-// }
-// return [];
+// For Array response (e.g., jsonplaceholder):
+const posts = response && response.data;
+if (Array.isArray(posts)) {
+  return posts.map(post => ({ test: post.title }));
+}
 
-// Note: Optional chaining (?.) is NOT supported. Use if/else instead.
-// Note: Array methods (.map(), .filter()) only work on arrays - check with Array.isArray() first!
-// Note: If code is empty, data will pass through unchanged`}
-                />
+// Note: Optional chaining (?.) is NOT supported
+// Note: Array methods only work on arrays - check with Array.isArray() first!`}
+                  />
+                </div>
                 <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-xs font-semibold text-blue-900 mb-2">📝 How to use:</p>
                   <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
