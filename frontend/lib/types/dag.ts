@@ -59,6 +59,7 @@ export interface Execution {
   workflow_id: string;
   status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
   result?: unknown;
+  result_json?: string; // JSON string from backend
   error?: string;
   started_at: string;
   finished_at?: string;

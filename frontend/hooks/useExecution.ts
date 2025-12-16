@@ -25,11 +25,25 @@ export function useExecution() {
     async (execId: string) => {
       try {
         const exec = await apiClient.getExecution(execId);
+        
+        // Parse result_json if it exists (it's a JSON string from backend)
+        let parsedResult = exec.result;
+        if (exec.result_json) {
+          try {
+            parsedResult = JSON.parse(exec.result_json);
+            // Update exec with parsed result
+            exec.result = parsedResult;
+          } catch (parseError) {
+            console.warn("Failed to parse result_json:", parseError);
+            // Keep original result_json as string if parsing fails
+          }
+        }
+        
         setExecution(exec);
-
+        
         if (exec.status === "COMPLETED") {
           setStatus("completed");
-          setResult(exec.result);
+          setResult(parsedResult);
           stopPolling();
         } else if (exec.status === "FAILED") {
           setStatus("failed");

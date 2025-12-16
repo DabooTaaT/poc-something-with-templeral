@@ -27,13 +27,36 @@ export function NodeConfigPanel({
   );
   const prevNodeIdRef = useRef<string | null>(node?.id || null);
 
+  // Local state for JSON textareas to allow free typing
+  const [headersText, setHeadersText] = useState<string>("");
+  const [queryText, setQueryText] = useState<string>("");
+  const [bodyText, setBodyText] = useState<string>("");
+
   // Update form data when node changes (using ref to track changes)
   useEffect(() => {
     if (node && node.id !== prevNodeIdRef.current) {
       prevNodeIdRef.current = node.id;
       // Use requestAnimationFrame to defer state update
       requestAnimationFrame(() => {
-        setFormData({ ...node.data });
+        const newData = { ...node.data };
+        setFormData(newData);
+
+        // Initialize textarea states for HTTP nodes
+        if (isHttpNode(node)) {
+          setHeadersText(
+            JSON.stringify((newData as HttpNodeData)?.headers || {}, null, 2)
+          );
+          setQueryText(
+            JSON.stringify((newData as HttpNodeData)?.query || {}, null, 2)
+          );
+          if (typeof (newData as HttpNodeData)?.body === "string") {
+            setBodyText((newData as HttpNodeData).body as string);
+          } else {
+            setBodyText(
+              JSON.stringify((newData as HttpNodeData)?.body || {}, null, 2)
+            );
+          }
+        }
       });
     }
   }, [node]);
@@ -52,6 +75,7 @@ export function NodeConfigPanel({
     field: string,
     value: string | Record<string, string> | unknown
   ) => {
+    console.log("handleChange", field, value);
     setFormData((prev) => {
       if (!prev) return prev;
       return { ...prev, [field]: value };
@@ -220,17 +244,20 @@ export function NodeConfigPanel({
                   Headers (JSON)
                 </label>
                 <textarea
-                  value={JSON.stringify(
-                    (formData as HttpNodeData)?.headers || {},
-                    null,
-                    2
-                  )}
+                  value={headersText}
                   onChange={(e) => {
+                    setHeadersText(e.target.value);
                     try {
                       const parsed = JSON.parse(e.target.value);
-                      handleChange("headers", parsed);
+                      if (
+                        typeof parsed === "object" &&
+                        parsed !== null &&
+                        !Array.isArray(parsed)
+                      ) {
+                        handleChange("headers", parsed);
+                      }
                     } catch {
-                      // Invalid JSON, keep as is
+                      // Invalid JSON, allow user to continue typing
                     }
                   }}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm shadow-sm transition-all bg-gray-50 text-gray-900"
@@ -257,17 +284,20 @@ export function NodeConfigPanel({
                   Query Parameters (JSON)
                 </label>
                 <textarea
-                  value={JSON.stringify(
-                    (formData as HttpNodeData)?.query || {},
-                    null,
-                    2
-                  )}
+                  value={queryText}
                   onChange={(e) => {
+                    setQueryText(e.target.value);
                     try {
                       const parsed = JSON.parse(e.target.value);
-                      handleChange("query", parsed);
+                      if (
+                        typeof parsed === "object" &&
+                        parsed !== null &&
+                        !Array.isArray(parsed)
+                      ) {
+                        handleChange("query", parsed);
+                      }
                     } catch {
-                      // Invalid JSON, keep as is
+                      // Invalid JSON, allow user to continue typing
                     }
                   }}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm shadow-sm transition-all bg-gray-50 text-gray-900"
@@ -297,24 +327,18 @@ export function NodeConfigPanel({
                     Request Body (JSON)
                   </label>
                   <textarea
-                    value={
-                      typeof (formData as HttpNodeData)?.body === "string"
-                        ? ((formData as HttpNodeData).body as string)
-                        : JSON.stringify(
-                            (formData as HttpNodeData)?.body || {},
-                            null,
-                            2
-                          )
-                    }
+                    value={bodyText}
                     onChange={(e) => {
+                      setBodyText(e.target.value);
                       try {
                         const parsed = JSON.parse(e.target.value);
                         handleChange("body", parsed);
                       } catch {
+                        // If not valid JSON, store as string
                         handleChange("body", e.target.value);
                       }
                     }}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm shadow-sm transition-all bg-gray-50"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm shadow-sm transition-all bg-gray-50 text-gray-900"
                     rows={6}
                     placeholder='{\n  "key": "value"\n}'
                   />
