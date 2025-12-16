@@ -22,11 +22,12 @@ export function HttpNode({ data, selected }: NodeProps<HttpNodeData>) {
     <div
       className={`px-5 py-4 bg-gradient-to-br ${
         methodColors[method] || methodColors.GET
-      } rounded-xl shadow-lg border-2 min-w-[200px] transition-all duration-200 ${
+      } rounded-xl shadow-lg border-2 min-w-[200px] transition-[opacity,transform,shadow,border-color] duration-150 ${
         selected
           ? "border-blue-700 ring-4 ring-blue-300/50 shadow-xl scale-105"
           : "border-blue-600/80 hover:shadow-xl hover:scale-[1.02]"
       }`}
+      style={{ willChange: "transform" }}
     >
       <div className="flex items-center gap-2 mb-2">
         <svg

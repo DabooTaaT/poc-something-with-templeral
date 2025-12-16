@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useMemo } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import ReactFlow, {
   Node,
   Edge,
@@ -16,6 +16,7 @@ import ReactFlow, {
   EdgeChange,
   applyNodeChanges,
   applyEdgeChanges,
+  useReactFlow,
 } from "reactflow";
 import "reactflow/dist/style.css";
 
@@ -35,6 +36,10 @@ interface FlowCanvasProps {
   onEdgesChange: (edges: Edge[]) => void;
   onNodeDoubleClick?: (node: DAGNode) => void;
   onNodeClick?: (node: DAGNode | null) => void;
+  onAddNode?: (
+    type: "start" | "http" | "output",
+    position: { x: number; y: number }
+  ) => void;
 }
 
 export function FlowCanvas({
@@ -44,29 +49,54 @@ export function FlowCanvas({
   onEdgesChange,
   onNodeDoubleClick,
   onNodeClick,
+  onAddNode,
 }: FlowCanvasProps) {
   const [nodes, setNodes, onNodesChangeInternal] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChangeInternal] = useEdgesState(initialEdges);
 
-  // Sync from parent when any node/edge changes (including data/position)
-  const nodesSignature = useMemo(() => JSON.stringify(initialNodes), [initialNodes]);
-  const edgesSignature = useMemo(() => JSON.stringify(initialEdges), [initialEdges]);
-  const prevNodesSigRef = useRef<string>(nodesSignature);
-  const prevEdgesSigRef = useRef<string>(edgesSignature);
+  // Track if we're currently dragging to avoid unnecessary syncs
+  const isDraggingRef = useRef(false);
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSyncRef = useRef<string>("");
 
+  // Sync from parent when nodes/edges change (but not during drag)
   useEffect(() => {
-    if (nodesSignature !== prevNodesSigRef.current) {
-      prevNodesSigRef.current = nodesSignature;
-      setNodes(initialNodes);
+    if (!isDraggingRef.current) {
+      // Simple comparison: check if node IDs or data changed (not positions)
+      const nodesKey = JSON.stringify(
+        initialNodes
+          .map((n) => ({ id: n.id, data: n.data }))
+          .sort((a, b) => a.id.localeCompare(b.id))
+      );
+
+      if (nodesKey !== lastSyncRef.current) {
+        lastSyncRef.current = nodesKey;
+        setNodes(initialNodes);
+      }
     }
-  }, [nodesSignature, initialNodes, setNodes]);
+  }, [initialNodes, setNodes]);
 
   useEffect(() => {
-    if (edgesSignature !== prevEdgesSigRef.current) {
-      prevEdgesSigRef.current = edgesSignature;
+    if (!isDraggingRef.current) {
       setEdges(initialEdges);
     }
-  }, [edgesSignature, initialEdges, setEdges]);
+  }, [initialEdges, setEdges]);
+
+  // Optimized sync to parent - only sync on drag end, not during drag
+  const syncNodesToParent = useCallback(
+    (updatedNodes: Node[]) => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+
+      // Reduced debounce for better responsiveness
+      syncTimeoutRef.current = setTimeout(() => {
+        onNodesChange(updatedNodes as DAGNode[]);
+        isDraggingRef.current = false;
+      }, 50); // Reduced from 150ms to 50ms
+    },
+    [onNodesChange]
+  );
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -79,16 +109,31 @@ export function FlowCanvas({
 
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
-      // Calculate updated nodes first
-      const updatedNodes = applyNodeChanges(changes, nodes);
+      // Check if this is a drag operation
+      const dragChange = changes.find(
+        (change) => change.type === "position" && change.dragging !== undefined
+      );
 
-      // Update React Flow's internal state
+      if (dragChange && dragChange.type === "position") {
+        isDraggingRef.current = dragChange.dragging === true;
+      }
+
+      // Apply changes to internal state immediately for smooth dragging
       onNodesChangeInternal(changes);
 
-      // Sync to parent state
-      onNodesChange(updatedNodes as DAGNode[]);
+      // Calculate updated nodes
+      const updatedNodes = applyNodeChanges(changes, nodes);
+
+      // Only sync to parent if not dragging, or if drag just ended
+      if (!isDraggingRef.current) {
+        // Immediate sync for non-drag changes (selection, etc.)
+        onNodesChange(updatedNodes as DAGNode[]);
+      } else {
+        // Debounced sync for drag operations (only during drag, not every frame)
+        syncNodesToParent(updatedNodes);
+      }
     },
-    [nodes, onNodesChange, onNodesChangeInternal]
+    [nodes, onNodesChange, onNodesChangeInternal, syncNodesToParent]
   );
 
   const handleEdgesChange = useCallback(
@@ -105,6 +150,21 @@ export function FlowCanvas({
     [edges, onEdgesChange, onEdgesChangeInternal]
   );
 
+  // Handle drag end - sync immediately
+  const handleNodeDragStop = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      isDraggingRef.current = false;
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+        syncTimeoutRef.current = null;
+      }
+      // Immediate sync on drag end
+      const updatedNodes = nodes.map((n) => (n.id === node.id ? node : n));
+      onNodesChange(updatedNodes as DAGNode[]);
+    },
+    [nodes, onNodesChange]
+  );
+
   const handleNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
       onNodeClick?.(node as DAGNode);
@@ -119,6 +179,100 @@ export function FlowCanvas({
     [onNodeDoubleClick]
   );
 
+  // Inner component to handle drop with ReactFlow context
+  const DropHandler = ({
+    onAddNode,
+  }: {
+    onAddNode?: (
+      type: "start" | "http" | "output",
+      position: { x: number; y: number }
+    ) => void;
+  }) => {
+    const { screenToFlowPosition } = useReactFlow();
+
+    useEffect(() => {
+      const handleDrop = (event: Event) => {
+        const dragEvent = event as DragEvent;
+        dragEvent.preventDefault();
+
+        const type = dragEvent.dataTransfer?.getData(
+          "application/reactflow"
+        ) as "start" | "http" | "output";
+
+        // Check if the dropped element is a valid node type
+        if (!type || !["start", "http", "output"].includes(type)) {
+          return;
+        }
+
+        // Convert screen position to flow position
+        const position = screenToFlowPosition({
+          x: dragEvent.clientX,
+          y: dragEvent.clientY,
+        });
+
+        // Call the onAddNode callback if provided
+        if (onAddNode) {
+          onAddNode(type, position);
+        }
+      };
+
+      const handleDragOver = (event: Event) => {
+        const dragEvent = event as DragEvent;
+        dragEvent.preventDefault();
+        if (dragEvent.dataTransfer) {
+          dragEvent.dataTransfer.dropEffect = "move";
+        }
+      };
+
+      // Wait for ReactFlow to render, then attach listeners
+      const attachListeners = () => {
+        const pane = document.querySelector(".react-flow__pane");
+        if (pane) {
+          pane.addEventListener("drop", handleDrop);
+          pane.addEventListener("dragover", handleDragOver);
+          return pane;
+        }
+        return null;
+      };
+
+      // Try to attach immediately
+      let pane = attachListeners();
+
+      // If not found, wait a bit and try again
+      if (!pane) {
+        const timeoutId = setTimeout(() => {
+          pane = attachListeners();
+        }, 100);
+
+        return () => {
+          clearTimeout(timeoutId);
+          if (pane) {
+            pane.removeEventListener("drop", handleDrop);
+            pane.removeEventListener("dragover", handleDragOver);
+          }
+        };
+      }
+
+      return () => {
+        if (pane) {
+          pane.removeEventListener("drop", handleDrop);
+          pane.removeEventListener("dragover", handleDragOver);
+        }
+      };
+    }, [onAddNode, screenToFlowPosition]);
+
+    return null;
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div className="w-full h-full bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/30">
       <ReactFlow
@@ -129,6 +283,7 @@ export function FlowCanvas({
         onConnect={onConnect}
         onNodeClick={handleNodeClick}
         onNodeDoubleClick={handleNodeDoubleClick}
+        onNodeDragStop={handleNodeDragStop}
         nodeTypes={nodeTypes}
         nodesDraggable={true}
         nodesConnectable={true}
@@ -137,9 +292,19 @@ export function FlowCanvas({
         className="bg-transparent"
         defaultEdgeOptions={{
           style: { strokeWidth: 2.5 },
-          animated: true,
+          animated: false, // Disable edge animation for better performance
         }}
+        // Performance optimizations
+        onlyRenderVisibleElements={true} // Enable for better performance
+        selectNodesOnDrag={false}
+        panOnDrag={[1, 2]} // Allow pan with middle/right mouse button, left button drags nodes
+        preventScrolling={false}
+        // Additional performance settings
+        minZoom={0.1}
+        maxZoom={2}
+        defaultViewport={{ x: 0, y: 0, zoom: 1 }}
       >
+        <DropHandler onAddNode={onAddNode} />
         <Background
           gap={20}
           size={1.5}

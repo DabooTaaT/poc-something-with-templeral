@@ -34,12 +34,12 @@ export default function Home() {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   const handleAddNode = useCallback(
-    (type: "start" | "http" | "output") => {
-      const position = {
+    (type: "start" | "http" | "output", position?: { x: number; y: number }) => {
+      const nodePosition = position || {
         x: Math.random() * 300 + 100,
         y: Math.random() * 300 + 100,
       };
-      addNode(type, position);
+      addNode(type, nodePosition);
     },
     [addNode]
   );
@@ -218,8 +218,13 @@ export default function Home() {
           </h2>
           <div className="space-y-3">
             <button
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData("application/reactflow", "start");
+                e.dataTransfer.effectAllowed = "move";
+              }}
               onClick={() => handleAddNode("start")}
-              className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 font-medium group"
+              className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 font-medium group cursor-grab active:cursor-grabbing"
             >
               <svg
                 className="w-5 h-5 group-hover:scale-110 transition-transform"
@@ -243,8 +248,13 @@ export default function Home() {
               Start Node
             </button>
             <button
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData("application/reactflow", "http");
+                e.dataTransfer.effectAllowed = "move";
+              }}
               onClick={() => handleAddNode("http")}
-              className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 font-medium group"
+              className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 font-medium group cursor-grab active:cursor-grabbing"
             >
               <svg
                 className="w-5 h-5 group-hover:scale-110 transition-transform"
@@ -262,8 +272,13 @@ export default function Home() {
               HTTP Node
             </button>
             <button
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData("application/reactflow", "output");
+                e.dataTransfer.effectAllowed = "move";
+              }}
               onClick={() => handleAddNode("output")}
-              className="w-full px-4 py-3 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 font-medium group"
+              className="w-full px-4 py-3 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 font-medium group cursor-grab active:cursor-grabbing"
             >
               <svg
                 className="w-5 h-5 group-hover:scale-110 transition-transform"
@@ -385,6 +400,7 @@ export default function Home() {
               onEdgesChange={setEdges}
               onNodeClick={handleNodeClick}
               onNodeDoubleClick={handleNodeDoubleClick}
+              onAddNode={handleAddNode}
             />
           </ReactFlowProvider>
         </main>

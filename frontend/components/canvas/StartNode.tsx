@@ -6,11 +6,12 @@ import { StartNodeData } from "@/lib/types/dag";
 export function StartNode({ data, selected }: NodeProps<StartNodeData>) {
   return (
     <div
-      className={`px-5 py-4 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg border-2 min-w-[140px] transition-all duration-200 ${
+      className={`px-5 py-4 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg border-2 min-w-[140px] transition-[opacity,transform,shadow,border-color] duration-150 ${
         selected
           ? "border-green-700 ring-4 ring-green-300/50 shadow-xl scale-105"
           : "border-green-600/80 hover:shadow-xl hover:scale-[1.02]"
       }`}
+      style={{ willChange: "transform" }}
     >
       <div className="flex items-center gap-2 justify-center">
         <svg
