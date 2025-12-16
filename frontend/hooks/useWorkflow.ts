@@ -10,17 +10,51 @@ export function useWorkflow() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadWorkflow = useCallback(async (id: string) => {
+  const loadWorkflow = useCallback(async (id: string): Promise<Workflow | null> => {
     setIsLoading(true);
     setError(null);
     try {
       const wf = await apiClient.getWorkflow(id);
-      setWorkflow(wf);
-      setNodes(wf.nodes);
-      setEdges(wf.edges);
+      
+      // Handle both formats: parsed (nodes/edges) or raw (dag_json string)
+      let nodes: Node[] = [];
+      let edges: Edge[] = [];
+      
+      if (Array.isArray(wf.nodes) && Array.isArray(wf.edges)) {
+        // Already parsed format
+        nodes = wf.nodes;
+        edges = wf.edges;
+      } else if (typeof (wf as any).dag_json === 'string') {
+        // Raw format - parse dag_json
+        try {
+          const dagStruct = JSON.parse((wf as any).dag_json);
+          nodes = Array.isArray(dagStruct.nodes) ? dagStruct.nodes : [];
+          edges = Array.isArray(dagStruct.edges) ? dagStruct.edges : [];
+        } catch (parseErr) {
+          console.error('Failed to parse dag_json:', parseErr);
+          setError('Failed to parse workflow data');
+          return null;
+        }
+      }
+      
+      // Create workflow object with parsed nodes/edges
+      const parsedWf: Workflow = {
+        id: wf.id,
+        name: wf.name,
+        nodes,
+        edges,
+        createdAt: wf.createdAt,
+        updatedAt: wf.updatedAt,
+      };
+      
+      setWorkflow(parsedWf);
+      setNodes(nodes);
+      setEdges(edges);
+      return parsedWf;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load workflow';
       setError(errorMessage);
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -32,8 +66,8 @@ export function useWorkflow() {
     try {
       const wf: Workflow = {
         name,
-        nodes,
-        edges,
+        nodes: Array.isArray(nodes) ? nodes : [],
+        edges: Array.isArray(edges) ? edges : [],
       };
 
       // Validate before saving
@@ -44,14 +78,17 @@ export function useWorkflow() {
 
       if (workflow?.id) {
         // Update existing
-        await apiClient.updateWorkflow(workflow.id, wf);
-        return workflow.id;
-      } else {
-        // Create new
-        const result = await apiClient.createWorkflow(wf);
-        setWorkflow({ ...wf, id: result.id });
-        return result.id;
+        const updated = await apiClient.updateWorkflow(workflow.id, wf);
+        setWorkflow(updated);
+        setNodes(Array.isArray(updated.nodes) ? updated.nodes : []);
+        setEdges(Array.isArray(updated.edges) ? updated.edges : []);
+        return updated.id ?? workflow.id;
       }
+
+      // Create new
+      const created = await apiClient.createWorkflow(wf);
+      setWorkflow(created);
+      return created.id!;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to save workflow';
       setError(errorMessage);
@@ -68,18 +105,18 @@ export function useWorkflow() {
       position,
       data: type === 'http' ? { url: '', method: 'GET' } : { label: type },
     };
-    setNodes(prev => [...prev, newNode]);
+    setNodes(prev => Array.isArray(prev) ? [...prev, newNode] : [newNode]);
   }, []);
 
   const updateNode = useCallback((id: string, data: Partial<Node>) => {
-    setNodes(prev => prev.map(node => 
+    setNodes(prev => Array.isArray(prev) ? prev.map(node => 
       node.id === id ? { ...node, ...data } : node
-    ));
+    ) : []);
   }, []);
 
   const deleteNode = useCallback((id: string) => {
-    setNodes(prev => prev.filter(node => node.id !== id));
-    setEdges(prev => prev.filter(edge => edge.source !== id && edge.target !== id));
+    setNodes(prev => Array.isArray(prev) ? prev.filter(node => node.id !== id) : []);
+    setEdges(prev => Array.isArray(prev) ? prev.filter(edge => edge.source !== id && edge.target !== id) : []);
   }, []);
 
   const addEdge = useCallback((source: string, target: string) => {
@@ -88,15 +125,19 @@ export function useWorkflow() {
       source,
       target,
     };
-    setEdges(prev => [...prev, newEdge]);
+    setEdges(prev => Array.isArray(prev) ? [...prev, newEdge] : [newEdge]);
   }, []);
 
   const deleteEdge = useCallback((id: string) => {
-    setEdges(prev => prev.filter(edge => edge.id !== id));
+    setEdges(prev => Array.isArray(prev) ? prev.filter(edge => edge.id !== id) : []);
   }, []);
 
   const validate = useCallback(() => {
-    const wf: Workflow = { name: workflow?.name || 'Untitled', nodes, edges };
+    const wf: Workflow = { 
+      name: workflow?.name || 'Untitled', 
+      nodes: Array.isArray(nodes) ? nodes : [], 
+      edges: Array.isArray(edges) ? edges : [] 
+    };
     return validateDAG(wf);
   }, [nodes, edges, workflow]);
 

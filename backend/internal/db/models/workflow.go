@@ -1,8 +1,6 @@
 package models
 
-import (
-	"time"
-)
+import "time"
 
 // Workflow represents a workflow definition in the database
 type Workflow struct {
@@ -57,4 +55,21 @@ type HttpNodeData struct {
 // OutputNodeData represents data for output node
 type OutputNodeData struct {
 	Label string `json:"label,omitempty"`
+}
+
+// WorkflowSummary is a lightweight view for history listings
+type WorkflowSummary struct {
+	ID            string            `json:"id" db:"id"`
+	Name          string            `json:"name" db:"name"`
+	UpdatedAt     time.Time         `json:"updatedAt" db:"updated_at"`
+	NodeCount     int               `json:"nodeCount" db:"node_count"`
+	EdgeCount     int               `json:"edgeCount" db:"edge_count"`
+	LastExecution *ExecutionSummary `json:"lastExecution,omitempty"`
+}
+
+// ExecutionSummary represents the latest execution metadata for a workflow
+type ExecutionSummary struct {
+	ID         string          `json:"id"`
+	Status     ExecutionStatus `json:"status"`
+	FinishedAt *time.Time      `json:"finishedAt,omitempty"`
 }

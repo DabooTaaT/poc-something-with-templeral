@@ -3,7 +3,13 @@
 import { ButtonHTMLAttributes, ReactNode } from "react";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "danger" | "success";
+  variant?:
+    | "primary"
+    | "secondary"
+    | "danger"
+    | "success"
+    | "outline"
+    | "ghost";
   size?: "sm" | "md" | "lg";
   children: ReactNode;
 }
@@ -28,6 +34,10 @@ export function Button({
       "bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 focus:ring-red-500",
     success:
       "bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-700 hover:to-green-800 focus:ring-green-500",
+    outline:
+      "border border-gray-300 bg-white text-gray-900 hover:bg-gray-50 focus:ring-gray-400",
+    ghost:
+      "bg-transparent text-gray-700 hover:bg-gray-100 focus:ring-gray-300 shadow-none hover:shadow-none",
   };
 
   const sizeStyles = {

@@ -54,15 +54,37 @@ export interface Workflow {
 }
 
 // Execution interface
+export type ExecutionStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+
 export interface Execution {
   id: string;
   workflow_id: string;
-  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+  status: ExecutionStatus;
   result?: unknown;
   result_json?: string; // JSON string from backend
   error?: string;
   started_at: string;
   finished_at?: string;
+}
+
+export interface WorkflowSummary {
+  id: string;
+  name: string;
+  updatedAt: string;
+  nodeCount: number;
+  edgeCount: number;
+  lastExecution?: {
+    id: string;
+    status: ExecutionStatus;
+    finishedAt?: string;
+  };
+}
+
+export interface WorkflowListResponse {
+  items: WorkflowSummary[];
+  total: number;
+  limit: number;
+  offset: number;
 }
 
 // Type guards

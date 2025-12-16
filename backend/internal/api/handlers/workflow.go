@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -14,6 +15,31 @@ import (
 // WorkflowHandler handles workflow-related requests
 type WorkflowHandler struct {
 	WorkflowService *service.WorkflowService
+}
+
+type workflowResponse struct {
+	ID        string        `json:"id"`
+	Name      string        `json:"name"`
+	Nodes     []models.Node `json:"nodes"`
+	Edges     []models.Edge `json:"edges"`
+	CreatedAt time.Time     `json:"createdAt"`
+	UpdatedAt time.Time     `json:"updatedAt"`
+}
+
+func (h *WorkflowHandler) toWorkflowResponse(wf *models.Workflow) (*workflowResponse, error) {
+	dagStruct, err := h.WorkflowService.ParseWorkflowDAG(wf)
+	if err != nil {
+		return nil, err
+	}
+
+	return &workflowResponse{
+		ID:        wf.ID,
+		Name:      wf.Name,
+		Nodes:     dagStruct.Nodes,
+		Edges:     dagStruct.Edges,
+		CreatedAt: wf.CreatedAt,
+		UpdatedAt: wf.UpdatedAt,
+	}, nil
 }
 
 // CreateWorkflow handles POST /workflows
@@ -38,7 +64,13 @@ func (h *WorkflowHandler) CreateWorkflow(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, wf)
+	resp, err := h.toWorkflowResponse(wf)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse workflow dag"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, resp)
 }
 
 // GetWorkflow handles GET /workflows/:id
@@ -54,7 +86,17 @@ func (h *WorkflowHandler) GetWorkflow(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, wf)
+
+	resp, err := h.toWorkflowResponse(wf)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to parse workflow dag",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
 }
 
 // UpdateWorkflow handles PUT /workflows/:id
@@ -88,23 +130,43 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, wf)
+	resp, err := h.toWorkflowResponse(wf)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse workflow dag"})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
 }
 
 // ListWorkflows handles GET /workflows
 func (h *WorkflowHandler) ListWorkflows(c *gin.Context) {
-	limitStr := c.DefaultQuery("limit", "50")
+	limitStr := c.DefaultQuery("limit", "20")
 	offsetStr := c.DefaultQuery("offset", "0")
+	search := c.Query("search")
+
 	limit, _ := strconv.Atoi(limitStr)
 	offset, _ := strconv.Atoi(offsetStr)
 
-	workflows, err := h.WorkflowService.ListWorkflows(c.Request.Context(), limit, offset)
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	workflows, total, err := h.WorkflowService.ListWorkflows(c.Request.Context(), limit, offset, search)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"items": workflows,
-		"total": len(workflows),
+		"items":  workflows,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
 	})
 }

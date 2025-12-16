@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -73,26 +74,105 @@ func (s *WorkflowService) GetWorkflow(ctx context.Context, id string) (*models.W
 	return &wf, nil
 }
 
-// ListWorkflows returns workflows with simple pagination
-func (s *WorkflowService) ListWorkflows(ctx context.Context, limit, offset int) ([]models.Workflow, error) {
+// ListWorkflows returns workflow summaries with pagination and optional search
+func (s *WorkflowService) ListWorkflows(ctx context.Context, limit, offset int, search string) ([]models.WorkflowSummary, int, error) {
 	if limit <= 0 {
-		limit = 50
+		limit = 20
 	}
-	rows, err := s.DB.QueryContext(ctx, `SELECT id, name, dag_json, created_at, updated_at FROM workflows ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	filterClause := ""
+	filterArgs := []interface{}{}
+	if search != "" {
+		filterClause = "WHERE w.name ILIKE $1"
+		filterArgs = append(filterArgs, "%"+search+"%")
+	}
+
+	limitPlaceholder := len(filterArgs) + 1
+	offsetPlaceholder := len(filterArgs) + 2
+
+	query := fmt.Sprintf(`
+		SELECT
+			w.id,
+			w.name,
+			w.updated_at,
+			COALESCE(jsonb_array_length(w.dag_json->'nodes'), 0) AS node_count,
+			COALESCE(jsonb_array_length(w.dag_json->'edges'), 0) AS edge_count,
+			e.id AS last_exec_id,
+			e.status AS last_exec_status,
+			e.finished_at AS last_exec_finished_at
+		FROM workflows w
+		LEFT JOIN LATERAL (
+			SELECT id, status, finished_at
+			FROM executions
+			WHERE workflow_id = w.id
+			ORDER BY finished_at DESC NULLS LAST, started_at DESC
+			LIMIT 1
+		) e ON true
+		%s
+		ORDER BY w.updated_at DESC
+		LIMIT $%d OFFSET $%d
+	`, filterClause, limitPlaceholder, offsetPlaceholder)
+
+	args := append([]interface{}{}, filterArgs...)
+	args = append(args, limit, offset)
+
+	rows, err := s.DB.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
-	var result []models.Workflow
+	var summaries []models.WorkflowSummary
 	for rows.Next() {
-		var wf models.Workflow
-		if err := rows.Scan(&wf.ID, &wf.Name, &wf.DAGJson, &wf.CreatedAt, &wf.UpdatedAt); err != nil {
-			return nil, err
+		var summary models.WorkflowSummary
+		var lastExecID sql.NullString
+		var lastExecStatus sql.NullString
+		var lastExecFinished sql.NullTime
+
+		if err := rows.Scan(
+			&summary.ID,
+			&summary.Name,
+			&summary.UpdatedAt,
+			&summary.NodeCount,
+			&summary.EdgeCount,
+			&lastExecID,
+			&lastExecStatus,
+			&lastExecFinished,
+		); err != nil {
+			return nil, 0, err
 		}
-		result = append(result, wf)
+
+		if lastExecID.Valid {
+			execSummary := &models.ExecutionSummary{
+				ID:     lastExecID.String,
+				Status: models.ExecutionStatus(lastExecStatus.String),
+			}
+			if lastExecFinished.Valid {
+				execSummary.FinishedAt = &lastExecFinished.Time
+			}
+			summary.LastExecution = execSummary
+		}
+
+		summaries = append(summaries, summary)
 	}
-	return result, rows.Err()
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM workflows w %s", filterClause)
+	var total int
+	if err := s.DB.QueryRowContext(ctx, countQuery, filterArgs...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	return summaries, total, nil
 }
 
 // UpdateWorkflow updates a workflow record and re-validates the DAG

@@ -9,11 +9,11 @@ import (
 	"github.com/joho/godotenv"
 	"go.temporal.io/sdk/client"
 
-	_ "github.com/lib/pq"
-
 	"github.com/your-org/n8n-clone/internal/api/handlers"
 	"github.com/your-org/n8n-clone/internal/api/middleware"
 	"github.com/your-org/n8n-clone/internal/service"
+
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -85,6 +85,25 @@ func main() {
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
+	})
+
+	// Mock somtinh check endpoint
+	router.GET("/mock-something", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"data": gin.H{
+				"userId":    1,
+				"id":        1,
+				"title":     "delectus aut autem",
+				"completed": false,
+				"name":      "mock value",
+				"lastName":  "mock Lastname",
+			},
+			"status": gin.H{
+				"code":   1000,
+				"massage": "hello wold",
+				"header":  "not error",
+			},
+		})
 	})
 
 	// Start server
