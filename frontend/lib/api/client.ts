@@ -79,6 +79,11 @@ class APIClient {
         if (!error.response) {
           // Network error or CORS issue
           const message = error.message || 'Network error';
+          console.log('[API Network Error]', {
+            message,
+            url: error.config?.url,
+            method: error.config?.method,
+          });
           console.error('[API Network Error]', {
             message,
             url: error.config?.url,

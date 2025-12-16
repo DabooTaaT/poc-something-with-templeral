@@ -111,15 +111,116 @@ NEXT_PUBLIC_API_WITH_CREDENTIALS=true
 ## Troubleshooting
 
 ### CORS Error: "No 'Access-Control-Allow-Origin' header"
-- ตรวจสอบว่า Backend กำลังรันอยู่
-- ตรวจสอบว่า `CORS_ALLOWED_ORIGINS` มี frontend URL
-- ตรวจสอบว่า Frontend เรียก API ไปที่ URL ที่ถูกต้อง
+**สาเหตุ:**
+- Backend ไม่ได้รัน หรือรันที่ port ไม่ถูกต้อง
+- `CORS_ALLOWED_ORIGINS` ไม่มี frontend URL
+- Frontend เรียก API ไปที่ URL ที่ผิด
+
+**วิธีแก้:**
+1. ตรวจสอบว่า Backend รันอยู่ที่ `http://localhost:8080`
+2. ตรวจสอบ environment variable: `echo $CORS_ALLOWED_ORIGINS`
+3. ถ้าเป็น `*` หรือมี URL อื่น ให้ unset: `unset CORS_ALLOWED_ORIGINS`
+4. ใช้ script ที่จัดเตรียมไว้: `./scripts/dev-api.sh`
+
+### CORS Error: "has a value 'http://localhost:8088'"
+**สาเหตุ:** 
+- กำลังเรียกไปที่ Temporal UI (port 8088) แทนที่จะเป็น API (port 8080)
+- Environment variable `CORS_ALLOWED_ORIGINS` ถูกตั้งค่าผิด
+
+**วิธีแก้:**
+1. ตรวจสอบว่า Frontend เรียก API ที่ `http://localhost:8080` ไม่ใช่ `8088`
+2. ตรวจสอบ shell environment: `env | grep CORS`
+3. Unset variable ที่ผิด: `unset CORS_ALLOWED_ORIGINS`
+4. Restart Backend API
 
 ### Credentials Error
-- ตั้ง `NEXT_PUBLIC_API_WITH_CREDENTIALS=true` ใน frontend
-- ตรวจสอบว่า Backend CORS middleware ตั้งค่า `Access-Control-Allow-Credentials: true`
+**สาเหตุ:**
+- ใช้ wildcard `*` กับ credentials (ซึ่งไม่ได้รับอนุญาต)
+- Frontend ไม่ได้ตั้ง `withCredentials`
+
+**วิธีแก้:**
+1. ใน Frontend: ตั้ง `NEXT_PUBLIC_API_WITH_CREDENTIALS=true`
+2. ใน Backend: ใช้ specific origins แทน wildcard `*`
+3. Restart ทั้ง Frontend และ Backend
 
 ### Preflight Request Failed
-- ตรวจสอบว่า Backend รองรับ OPTIONS method
-- ตรวจสอบว่า CORS headers ถูกส่งใน preflight response
+**สาเหตุ:**
+- Backend ไม่รองรับ OPTIONS method
+- CORS headers ไม่ถูกส่งใน preflight response
+
+**วิธีแก้:**
+1. ตรวจสอบว่า CORS middleware ถูก register ก่อน routes
+2. ตรวจสอบ logs เพื่อดู CORS decision: `[CORS] ✓ Allowed` หรือ `[CORS] ✗ Blocked`
+
+## Development Helpers
+
+### Quick Start Scripts
+
+ใช้ scripts ที่จัดเตรียมไว้เพื่อความสะดวก:
+
+**Start API Server:**
+```bash
+cd backend
+./scripts/dev-api.sh
+```
+
+**Start Temporal Worker:**
+```bash
+cd backend
+./scripts/dev-worker.sh
+```
+
+Scripts เหล่านี้จะ:
+- ✓ ตั้ง environment variables ที่ถูกต้องอัตโนมัติ
+- ✓ Unset CORS_ALLOWED_ORIGINS เพื่อใช้ค่า default
+- ✓ ตรวจสอบว่า dependencies (PostgreSQL, Temporal) รันอยู่
+- ✓ แสดง configuration ก่อนเริ่ม server
+
+### Debug CORS Issues
+
+เมื่อ Backend รันอยู่ใน debug mode จะเห็น logs:
+
+**Startup:**
+```
+[CORS] Configuration loaded - Allowed origins: [http://localhost:3000 http://127.0.0.1:3000]
+```
+
+**Per Request:**
+```
+[CORS] ✓ Allowed: http://localhost:3000 → POST /api/v1/workflows
+[CORS] ✗ Blocked: http://evil.com → GET /api/v1/workflows
+```
+
+### Check Environment
+
+```bash
+# ตรวจสอบ environment variables
+env | grep -E "CORS|API_PORT|DATABASE_URL|TEMPORAL"
+
+# ตรวจสอบว่า services รันอยู่
+nc -z localhost 8080  # API
+nc -z localhost 5432  # PostgreSQL  
+nc -z localhost 7233  # Temporal
+
+# ดู API logs
+tail -f /path/to/api/logs
+```
+
+## Architecture Notes
+
+### CORS Flow
+
+1. **Browser** ส่ง preflight OPTIONS request
+2. **Backend CORS Middleware** ตรวจสอบ origin
+3. ถ้า allowed: ส่ง headers และ 204 response
+4. ถ้า blocked: ส่ง 403 response
+5. **Browser** ส่ง actual request (ถ้า preflight สำเร็จ)
+
+### Security Best Practices
+
+1. **Development:** ใช้ specific origins (`http://localhost:3000`)
+2. **Production:** ใช้ HTTPS และ specific domains
+3. **Never:** ใช้ `*` กับ credentials ใน production
+4. **Always:** Validate origins server-side
+5. **Always:** Use HTTPS ใน production
 

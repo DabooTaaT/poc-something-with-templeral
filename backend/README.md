@@ -36,46 +36,68 @@ This will start:
 docker exec -i workflow_postgres psql -U workflow_user -d workflow_db < internal/db/migrations/001_init_schema.sql
 ```
 
-**Option C: Using psql directly**
+### 3. Start Development Servers
+
+**Using Helper Scripts (Recommended):**
+
+The easiest way to start the backend services with correct environment configuration:
 
 ```bash
-docker exec -it workflow_postgres psql -U workflow_user -d workflow_db
-# Then paste the SQL from internal/db/migrations/001_init_schema.sql
+# Terminal 1: Start API Server
+./scripts/dev-api.sh
+
+# Terminal 2: Start Temporal Worker
+./scripts/dev-worker.sh
 ```
 
-### 3. Configure Environment
+These scripts will:
+- ✓ Set all required environment variables automatically
+- ✓ Use correct CORS settings for development (`http://localhost:3000`)
+- ✓ Check if dependencies (PostgreSQL, Temporal) are running
+- ✓ Display configuration before starting
 
-Create a `.env` file in the backend directory:
+**Manual Start (Alternative):**
 
-```env
-# API Configuration
-API_PORT=8080
-
-# Database Configuration
-DATABASE_URL=postgres://workflow_user:workflow_pass@localhost:5432/workflow_db?sslmode=disable
-
-# Temporal Configuration
-TEMPORAL_HOST=localhost:7233
-
-# CORS Configuration
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-```
-
-### 4. Run the API Server
+If you prefer manual control:
 
 ```bash
+# Set environment variables
+export DATABASE_URL="postgres://workflow_user:workflow_pass@localhost:5432/workflow_db?sslmode=disable"
+export TEMPORAL_HOST="localhost:7233"
+export API_PORT="8080"
+# Important: Unset CORS_ALLOWED_ORIGINS to use defaults
+unset CORS_ALLOWED_ORIGINS
+
+# Terminal 1: API Server
 go run cmd/api/main.go
+
+# Terminal 2: Worker
+go run cmd/worker/main.go
 ```
+
+### 4. Verify Setup
 
 The API will be available at: http://localhost:8080
 
-### 5. Run the Temporal Worker
+Test endpoints:
+- Health check: http://localhost:8080/health
+- Temporal UI: http://localhost:8088
 
-In a separate terminal:
+### 5. Common Issues
 
+**CORS Errors:**
+If you see CORS errors like "has a value 'http://localhost:8088'":
+- Make sure you're using `./scripts/dev-api.sh` OR
+- Unset `CORS_ALLOWED_ORIGINS`: `unset CORS_ALLOWED_ORIGINS`
+- Restart the API server
+
+**Port Already in Use:**
 ```bash
-go run cmd/worker/main.go
+# Find and kill process using port 8080
+lsof -ti:8080 | xargs kill -9
 ```
+
+See [CORS_SETUP.md](../CORS_SETUP.md) for detailed troubleshooting.
 
 ## Project Structure
 
