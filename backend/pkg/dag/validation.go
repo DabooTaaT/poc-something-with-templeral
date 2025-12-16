@@ -239,6 +239,15 @@ func validateNodeData(node models.Node) []string {
 			errors = append(errors, fmt.Sprintf("HTTP node '%s' has invalid method '%s'", node.ID, httpData.Method))
 		}
 
+	case "code":
+		// Code nodes are optional - if data is nil, it's passthrough mode
+		if node.Data != nil {
+			_, err := parseCodeNodeData(node.Data)
+			if err != nil {
+				errors = append(errors, fmt.Sprintf("Code node '%s' invalid data: %v", node.ID, err))
+			}
+		}
+		// Code is optional, so empty code is valid (passthrough mode)
 	case "start":
 		// Start nodes typically don't need validation
 	case "output":
@@ -280,5 +289,24 @@ func isValidHTTPMethod(method string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func parseCodeNodeData(data interface{}) (*models.CodeNodeData, error) {
+	switch v := data.(type) {
+	case models.CodeNodeData:
+		return &v, nil
+	case map[string]interface{}:
+		bytes, err := json.Marshal(v)
+		if err != nil {
+			return nil, err
+		}
+		var parsed models.CodeNodeData
+		if err := json.Unmarshal(bytes, &parsed); err != nil {
+			return nil, err
+		}
+		return &parsed, nil
+	default:
+		return nil, fmt.Errorf("unsupported code node data type %T", data)
 	}
 }

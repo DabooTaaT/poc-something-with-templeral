@@ -63,6 +63,8 @@ func main() {
 	w.RegisterActivity(activities.LoadDAGActivity)
 	w.RegisterActivity(activities.StoreExecutionResultActivity)
 	w.RegisterActivity(activities.UpdateExecutionStatusActivity)
+	w.RegisterActivity(activities.StoreExecutionErrorActivity)
+	w.RegisterActivity(activities.CodeExecutionActivity)
 
 	// Start worker
 	log.Println("Starting Temporal worker...")

@@ -92,7 +92,7 @@ func main() {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	// Mock somtinh check endpoint
+	// Mock endpoint for testing HTTP nodes
 	router.GET("/mock-something", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"data": gin.H{

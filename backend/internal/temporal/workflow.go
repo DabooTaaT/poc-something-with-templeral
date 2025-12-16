@@ -2,6 +2,8 @@ package temporal
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
 	"go.temporal.io/sdk/temporal"
@@ -54,8 +56,9 @@ func DAGWorkflow(ctx workflow.Context, input WorkflowInput) (*WorkflowResult, er
 	// Validate DAG
 	validation := dag.ValidateDAG(&dagStruct)
 	if !validation.Valid {
-		// mark failed
-		_ = workflow.ExecuteActivity(activityCtx, (*Activities).UpdateExecutionStatusActivity, input.ExecutionID, string(models.StatusFailed)).Get(activityCtx, nil)
+		// mark failed with error message
+		errMsg := fmt.Sprintf("dag validation failed: %v", validation.Errors)
+		_ = workflow.ExecuteActivity(activityCtx, (*Activities).StoreExecutionErrorActivity, input.ExecutionID, errMsg).Get(activityCtx, nil)
 		return nil, temporal.NewApplicationError("dag validation failed", "ValidationError", validation.Errors)
 	}
 
@@ -65,7 +68,8 @@ func DAGWorkflow(ctx workflow.Context, input WorkflowInput) (*WorkflowResult, er
 	// Topological sort
 	order, err := dag.TopologicalSort(dagStruct.Nodes, dagStruct.Edges)
 	if err != nil {
-		_ = workflow.ExecuteActivity(activityCtx, (*Activities).UpdateExecutionStatusActivity, input.ExecutionID, string(models.StatusFailed)).Get(activityCtx, nil)
+		errMsg := fmt.Sprintf("topological sort failed: %v", err)
+		_ = workflow.ExecuteActivity(activityCtx, (*Activities).StoreExecutionErrorActivity, input.ExecutionID, errMsg).Get(activityCtx, nil)
 		return nil, err
 	}
 
@@ -84,7 +88,8 @@ func DAGWorkflow(ctx workflow.Context, input WorkflowInput) (*WorkflowResult, er
 		case "http":
 			httpData, err := parseHTTPData(node.Data)
 			if err != nil {
-				_ = workflow.ExecuteActivity(activityCtx, (*Activities).UpdateExecutionStatusActivity, input.ExecutionID, string(models.StatusFailed)).Get(activityCtx, nil)
+				errMsg := fmt.Sprintf("failed to parse HTTP node data: %v", err)
+				_ = workflow.ExecuteActivity(activityCtx, (*Activities).StoreExecutionErrorActivity, input.ExecutionID, errMsg).Get(activityCtx, nil)
 				return nil, err
 			}
 			var httpResp HttpRequestOutput
@@ -96,10 +101,44 @@ func DAGWorkflow(ctx workflow.Context, input WorkflowInput) (*WorkflowResult, er
 				Body:    httpData.Body,
 			}).Get(activityCtx, &httpResp)
 			if err != nil {
-				_ = workflow.ExecuteActivity(activityCtx, (*Activities).UpdateExecutionStatusActivity, input.ExecutionID, string(models.StatusFailed)).Get(activityCtx, nil)
+				errMsg := fmt.Sprintf("HTTP request failed: %v", err)
+				_ = workflow.ExecuteActivity(activityCtx, (*Activities).StoreExecutionErrorActivity, input.ExecutionID, errMsg).Get(activityCtx, nil)
 				return nil, err
 			}
 			lastResult = httpResp
+		case "code":
+			codeData, err := parseCodeData(node.Data)
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to parse code node data: %v", err)
+				_ = workflow.ExecuteActivity(activityCtx, (*Activities).StoreExecutionErrorActivity, input.ExecutionID, errMsg).Get(activityCtx, nil)
+				return nil, err
+			}
+			
+			// If code is empty, passthrough
+			if codeData.Code == "" || strings.TrimSpace(codeData.Code) == "" {
+				// Passthrough: lastResult remains unchanged
+				continue
+			}
+			
+			var codeOutput CodeExecutionOutput
+			err = workflow.ExecuteActivity(activityCtx, (*Activities).CodeExecutionActivity, CodeExecutionInput{
+				Code:  codeData.Code,
+				Input: lastResult,
+			}).Get(activityCtx, &codeOutput)
+			
+			if err != nil {
+				errMsg := fmt.Sprintf("code execution activity failed: %v", err)
+				_ = workflow.ExecuteActivity(activityCtx, (*Activities).StoreExecutionErrorActivity, input.ExecutionID, errMsg).Get(activityCtx, nil)
+				return nil, err
+			}
+			
+			if codeOutput.Error != "" {
+				errMsg := fmt.Sprintf("code execution error: %s", codeOutput.Error)
+				_ = workflow.ExecuteActivity(activityCtx, (*Activities).StoreExecutionErrorActivity, input.ExecutionID, errMsg).Get(activityCtx, nil)
+				return nil, temporal.NewApplicationError("code execution failed", "CodeExecutionError", codeOutput.Error)
+			}
+			
+			lastResult = codeOutput.Result
 		case "output":
 			// No-op, but we keep lastResult
 		default:
@@ -135,5 +174,24 @@ func parseHTTPData(data interface{}) (*models.HttpNodeData, error) {
 		return &parsed, nil
 	default:
 		return nil, temporal.NewApplicationError("invalid http node data", "InvalidData", data)
+	}
+}
+
+func parseCodeData(data interface{}) (*models.CodeNodeData, error) {
+	switch v := data.(type) {
+	case models.CodeNodeData:
+		return &v, nil
+	case map[string]interface{}:
+		b, err := json.Marshal(v)
+		if err != nil {
+			return nil, err
+		}
+		var parsed models.CodeNodeData
+		if err := json.Unmarshal(b, &parsed); err != nil {
+			return nil, err
+		}
+		return &parsed, nil
+	default:
+		return nil, temporal.NewApplicationError("invalid code node data", "InvalidData", data)
 	}
 }

@@ -22,10 +22,15 @@ export interface OutputNodeData {
   result?: unknown; // Execution result if available
 }
 
-export type NodeData = StartNodeData | HttpNodeData | OutputNodeData;
+export interface CodeNodeData {
+  code?: string; // JavaScript code snippet
+  label?: string; // Optional label
+}
+
+export type NodeData = StartNodeData | HttpNodeData | CodeNodeData | OutputNodeData;
 
 // Node types
-export type NodeType = 'start' | 'http' | 'output';
+export type NodeType = 'start' | 'http' | 'code' | 'output';
 
 // Node interface
 export interface Node {
@@ -115,5 +120,9 @@ export function isHttpNode(node: Node): node is Node & { data: HttpNodeData } {
 
 export function isOutputNode(node: Node): node is Node & { data: OutputNodeData } {
   return node.type === 'output';
+}
+
+export function isCodeNode(node: Node): node is Node & { data: CodeNodeData } {
+  return node.type === 'code';
 }
 

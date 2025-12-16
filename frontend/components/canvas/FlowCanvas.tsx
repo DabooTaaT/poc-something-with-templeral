@@ -21,12 +21,13 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 
-import { StartNode, HttpNode, OutputNode } from "./CustomNodes";
+import { StartNode, HttpNode, CodeNode, OutputNode } from "./CustomNodes";
 import { Node as DAGNode } from "@/lib/types/dag";
 
 const NODE_TYPES: NodeTypes = {
   start: StartNode,
   http: HttpNode,
+  code: CodeNode,
   output: OutputNode,
 };
 
@@ -223,7 +224,7 @@ export function FlowCanvas({
     onAddNode,
   }: {
     onAddNode?: (
-      type: "start" | "http" | "output",
+      type: "start" | "http" | "code" | "output",
       position: { x: number; y: number }
     ) => void;
   }) => {
@@ -236,10 +237,10 @@ export function FlowCanvas({
 
         const type = dragEvent.dataTransfer?.getData(
           "application/reactflow"
-        ) as "start" | "http" | "output";
+        ) as "start" | "http" | "code" | "output";
 
         // Check if the dropped element is a valid node type
-        if (!type || !["start", "http", "output"].includes(type)) {
+        if (!type || !["start", "http", "code", "output"].includes(type)) {
           return;
         }
 

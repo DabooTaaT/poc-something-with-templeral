@@ -127,12 +127,16 @@ export function useWorkflow() {
     }
   }, [nodes, edges, workflow, isViewMode]);
 
-  const addNode = useCallback((type: 'start' | 'http' | 'output', position: { x: number; y: number }) => {
+  const addNode = useCallback((type: 'start' | 'http' | 'code' | 'output', position: { x: number; y: number }) => {
     const newNode: Node = {
       id: `${type}-${Date.now()}`,
       type,
       position,
-      data: type === 'http' ? { url: '', method: 'GET' } : { label: type },
+      data: type === 'http' 
+        ? { url: '', method: 'GET' } 
+        : type === 'code'
+        ? { code: '', label: 'Code' }
+        : { label: type },
     };
     setNodes(prev => Array.isArray(prev) ? [...prev, newNode] : [newNode]);
   }, []);

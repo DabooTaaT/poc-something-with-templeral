@@ -6,9 +6,10 @@ import {
   NodeData,
   StartNodeData,
   HttpNodeData,
+  CodeNodeData,
   OutputNodeData,
 } from "@/lib/types/dag";
-import { isStartNode, isHttpNode, isOutputNode } from "@/lib/types/dag";
+import { isStartNode, isHttpNode, isCodeNode, isOutputNode } from "@/lib/types/dag";
 
 interface NodeConfigPanelProps {
   node: Node | null;
@@ -403,6 +404,115 @@ export function NodeConfigPanel({
                   />
                 </div>
               )}
+            </>
+          )}
+
+          {isCodeNode(node) && (
+            <>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <svg
+                    className="w-4 h-4 text-gray-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+                    />
+                  </svg>
+                  JavaScript Code
+                </label>
+                <textarea
+                  value={(formData as CodeNodeData)?.code || ""}
+                  onChange={(e) => handleChange("code", e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm shadow-sm transition-all bg-gray-50 text-gray-900"
+                  rows={12}
+                  placeholder={`// Example: Transform response data
+// Available variables: 'response' and 'data' (both contain the previous node's output)
+
+// IMPORTANT: HTTP Node response structure:
+// {
+//   "status_code": 200,
+//   "data": { "data": {...}, "status": {...} },
+//   "body": "..."
+// }
+// So use response.data.data to access the actual data!
+
+// Example 1: Extract from HTTP response (correct way)
+const httpData = response && response.data && response.data.data;
+if (httpData) {
+  return {
+    name: httpData.name,
+    lastName: httpData.lastName
+  };
+}
+return {};
+
+// Example 2: Direct access (if you know the structure)
+return {
+  name: response.data.data.name,
+  lastName: response.data.data.lastName
+};
+
+// Example 3: Safe access with fallback
+const data = response && response.data && response.data.data;
+return {
+  name: data ? data.name : null,
+  title: data ? data.title : null
+};
+
+// Example 4: Array methods (only work on arrays!)
+// const items = response && response.data && response.data.data;
+// if (Array.isArray(items)) {
+//   return items.map(item => item.name);
+// }
+// return [];
+
+// Note: Optional chaining (?.) is NOT supported. Use if/else instead.
+// Note: Array methods (.map(), .filter()) only work on arrays - check with Array.isArray() first!
+// Note: If code is empty, data will pass through unchanged`}
+                />
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs font-semibold text-blue-900 mb-2">📝 How to use:</p>
+                  <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
+                    <li>Use <code className="bg-blue-100 px-1 rounded">response</code> or <code className="bg-blue-100 px-1 rounded">data</code> to access previous node's output</li>
+                    <li>You must <code className="bg-blue-100 px-1 rounded">return</code> a value (object, array, string, number, etc.)</li>
+                    <li>If you don't write <code className="bg-blue-100 px-1 rounded">return</code>, the system will auto-return <code className="bg-blue-100 px-1 rounded">response</code></li>
+                    <li><strong>⚠️ Optional chaining (<code className="bg-blue-100 px-1 rounded">?.</code>) is NOT supported</strong> - Use <code className="bg-blue-100 px-1 rounded">if (response && response.data)</code> instead</li>
+                    <li><strong>⚠️ Array methods (<code className="bg-blue-100 px-1 rounded">.map()</code>, <code className="bg-blue-100 px-1 rounded">.filter()</code>)</strong> only work on arrays - Check with <code className="bg-blue-100 px-1 rounded">Array.isArray()</code> first</li>
+                    <li>Leave empty for passthrough mode (no transformation)</li>
+                  </ul>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <svg
+                    className="w-4 h-4 text-gray-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
+                    />
+                  </svg>
+                  Label (optional)
+                </label>
+                <input
+                  type="text"
+                  value={(formData as CodeNodeData)?.label || ""}
+                  onChange={(e) => handleChange("label", e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent shadow-sm transition-all text-gray-900 bg-white"
+                  placeholder="Code Node"
+                />
+              </div>
             </>
           )}
 

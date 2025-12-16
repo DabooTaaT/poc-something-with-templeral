@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dop251/goja"
+
 	"github.com/your-org/n8n-clone/internal/db/models"
 )
 
@@ -29,10 +31,10 @@ type HttpRequestInput struct {
 
 // HttpRequestOutput represents output from HTTP request activity
 type HttpRequestOutput struct {
-	StatusCode int                    `json:"status_code"`
-	Headers    map[string][]string    `json:"headers"`
-	Body       string                 `json:"body"`
-	Data       map[string]interface{} `json:"data,omitempty"`
+	StatusCode int                 `json:"status_code"`
+	Headers     map[string][]string `json:"headers"`
+	Body        string              `json:"body"`
+	Data        interface{}         `json:"data,omitempty"` // Can be object or array
 }
 
 // HttpRequestActivity performs an HTTP request
@@ -87,8 +89,8 @@ func (a *Activities) HttpRequestActivity(ctx context.Context, input HttpRequestI
 		Body:       string(respBody),
 	}
 
-	// Try to parse JSON response
-	var data map[string]interface{}
+	// Try to parse JSON response (can be object or array)
+	var data interface{}
 	if err := json.Unmarshal(respBody, &data); err == nil {
 		output.Data = data
 	}
@@ -127,4 +129,162 @@ func (a *Activities) UpdateExecutionStatusActivity(ctx context.Context, executio
 	}
 	_, err := a.DB.ExecContext(ctx, `UPDATE executions SET status = $1 WHERE id = $2`, status, executionID)
 	return err
+}
+
+// StoreExecutionErrorActivity stores error message and marks execution as failed
+func (a *Activities) StoreExecutionErrorActivity(ctx context.Context, executionID string, errMsg string) error {
+	now := time.Now().UTC()
+	_, err := a.DB.ExecContext(ctx, `UPDATE executions SET status = $1, error = $2, finished_at = $3 WHERE id = $4`,
+		models.StatusFailed, errMsg, now, executionID)
+	return err
+}
+
+// CodeExecutionInput represents input for code execution activity
+type CodeExecutionInput struct {
+	Code  string      `json:"code"`
+	Input interface{} `json:"input"` // Response from previous node
+}
+
+// CodeExecutionOutput represents output from code execution activity
+type CodeExecutionOutput struct {
+	Result interface{} `json:"result"`
+	Error  string      `json:"error,omitempty"`
+}
+
+// CodeExecutionActivity executes JavaScript code using goja
+func (a *Activities) CodeExecutionActivity(ctx context.Context, input CodeExecutionInput) (*CodeExecutionOutput, error) {
+	// If code is empty, passthrough
+	if strings.TrimSpace(input.Code) == "" {
+		return &CodeExecutionOutput{
+			Result: input.Input,
+		}, nil
+	}
+
+	// Create JavaScript runtime
+	vm := goja.New()
+
+	// Convert input to JSON string for injection
+	inputJSON, err := json.Marshal(input.Input)
+	if err != nil {
+		return &CodeExecutionOutput{
+			Error: fmt.Sprintf("failed to marshal input: %v", err),
+		}, nil
+	}
+
+	// Parse input JSON to interface{} for goja
+	var inputObj interface{}
+	if err := json.Unmarshal(inputJSON, &inputObj); err != nil {
+		return &CodeExecutionOutput{
+			Error: fmt.Sprintf("failed to unmarshal input: %v", err),
+		}, nil
+	}
+
+	// Set response and data variables in JavaScript context
+	// Use ToValue to properly convert Go values to JavaScript values
+	responseVal := vm.ToValue(inputObj)
+	vm.Set("response", responseVal)
+	vm.Set("data", responseVal)
+
+	// Wrap code to ensure it returns a value
+	// Check if code has return statement (simple check)
+	codeTrimmed := strings.TrimSpace(input.Code)
+	hasReturn := strings.Contains(codeTrimmed, "return")
+	
+	var wrappedCode string
+	if hasReturn {
+		// Code has return, wrap in IIFE with proper formatting
+		wrappedCode = fmt.Sprintf("(function() {\n%s\n})()", input.Code)
+	} else {
+		// No return, add default return
+		wrappedCode = fmt.Sprintf("(function() {\n%s\nreturn response;\n})()", input.Code)
+	}
+
+	// Execute code with timeout (5 seconds max)
+	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	done := make(chan bool, 1)
+	var result goja.Value
+	var execErr error
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				execErr = fmt.Errorf("panic during execution: %v", r)
+			}
+			done <- true
+		}()
+		// Try to compile first to get better error messages
+		program, compileErr := goja.Compile("code-node", wrappedCode, false)
+		if compileErr != nil {
+			execErr = fmt.Errorf("syntax error: %v", compileErr)
+			return
+		}
+		// Run the compiled program
+		result, execErr = vm.RunProgram(program)
+		if execErr != nil {
+			// Extract more detailed error information
+			errStr := execErr.Error()
+			// Check if it's a TypeError (common JavaScript errors)
+			if strings.Contains(errStr, "TypeError") || strings.Contains(errStr, "Cannot read property") {
+				execErr = fmt.Errorf("runtime error: %v", execErr)
+			} else {
+				execErr = fmt.Errorf("runtime error: %v", execErr)
+			}
+			return
+		}
+	}()
+
+	// Wait for execution or timeout
+	select {
+	case <-timeoutCtx.Done():
+		return &CodeExecutionOutput{
+			Error: "code execution timeout (5s)",
+		}, nil
+	case <-done:
+		if execErr != nil {
+			return &CodeExecutionOutput{
+				Error: fmt.Sprintf("code execution error: %v", execErr),
+			}, nil
+		}
+
+		// Check if result is valid
+		if result == nil {
+			return &CodeExecutionOutput{
+				Error: "code must return a value (result is nil)",
+			}, nil
+		}
+
+		// Check for undefined or null
+		if goja.IsUndefined(result) {
+			return &CodeExecutionOutput{
+				Error: "code must return a value (result is undefined)",
+			}, nil
+		}
+
+		if goja.IsNull(result) {
+			// Null is a valid return value, export it
+			var goResult interface{}
+			if err := vm.ExportTo(result, &goResult); err != nil {
+				return &CodeExecutionOutput{
+					Error: fmt.Sprintf("failed to export null result: %v", err),
+				}, nil
+			}
+			return &CodeExecutionOutput{
+				Result: goResult,
+			}, nil
+		}
+
+		// Export result to Go value
+		var goResult interface{}
+		if err := vm.ExportTo(result, &goResult); err != nil {
+			return &CodeExecutionOutput{
+				Error: fmt.Sprintf("failed to export result: %v", err),
+			}, nil
+		}
+
+		return &CodeExecutionOutput{
+			Result: goResult,
+		}, nil
+	}
 }

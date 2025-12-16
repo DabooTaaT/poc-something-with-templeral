@@ -173,7 +173,7 @@ export default function Home() {
 
   const handleAddNode = useCallback(
     (
-      type: "start" | "http" | "output",
+      type: "start" | "http" | "code" | "output",
       position?: { x: number; y: number }
     ) => {
       const nodePosition = position || {
@@ -730,7 +730,7 @@ export default function Home() {
               Add Nodes
             </h2>
             <div className="space-y-3">
-              {["start", "http", "output"].map((nodeType) => {
+              {["start", "http", "code", "output"].map((nodeType) => {
                 const config = {
                   start: {
                     label: "Start Node",
@@ -742,6 +742,11 @@ export default function Home() {
                     classes:
                       "from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700",
                   },
+                  code: {
+                    label: "Code Node",
+                    classes:
+                      "from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700",
+                  },
                   output: {
                     label: "Output Node",
                     classes:
@@ -749,7 +754,7 @@ export default function Home() {
                   },
                 } as const;
                 const { label, classes } =
-                  config[nodeType as "start" | "http" | "output"];
+                  config[nodeType as "start" | "http" | "code" | "output"];
                 return (
                   <button
                     key={nodeType}
@@ -759,7 +764,9 @@ export default function Home() {
                       e.dataTransfer.effectAllowed = "move";
                     }}
                     onClick={() =>
-                      handleAddNode(nodeType as "start" | "http" | "output")
+                      handleAddNode(
+                        nodeType as "start" | "http" | "code" | "output"
+                      )
                     }
                     className={`w-full px-4 py-3 bg-gradient-to-r ${classes} text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 font-medium group cursor-grab active:cursor-grabbing`}
                   >

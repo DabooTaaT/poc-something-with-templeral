@@ -31,7 +31,7 @@ type DAGStructure struct {
 // Node represents a workflow node
 type Node struct {
 	ID       string      `json:"id"`
-	Type     string      `json:"type"` // "start", "http", "output"
+	Type     string      `json:"type"` // "start", "http", "code", "output"
 	Position Position    `json:"position"`
 	Data     interface{} `json:"data"`
 }
@@ -65,6 +65,12 @@ type HttpNodeData struct {
 
 // OutputNodeData represents data for output node
 type OutputNodeData struct {
+	Label string `json:"label,omitempty"`
+}
+
+// CodeNodeData represents data for code node
+type CodeNodeData struct {
+	Code  string `json:"code,omitempty"`
 	Label string `json:"label,omitempty"`
 }
 
