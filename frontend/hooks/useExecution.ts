@@ -31,8 +31,25 @@ export function useExecution() {
         if (exec.result_json) {
           try {
             parsedResult = JSON.parse(exec.result_json);
-            // Update exec with parsed result
-            exec.result = parsedResult;
+            // Update exec with parsed result body (fallback to entire result if body is missing)
+            if (
+              parsedResult &&
+              typeof parsedResult === "object" &&
+              "body" in parsedResult
+            ) {
+              const { body } = parsedResult as { body?: unknown };
+              if (typeof body === "string") {
+                try {
+                  exec.result = JSON.parse(body);
+                } catch {
+                  exec.result = body;
+                }
+              } else {
+                exec.result = body ?? parsedResult;
+              }
+            } else {
+              exec.result = parsedResult;
+            }
           } catch (parseError) {
             console.warn("Failed to parse result_json:", parseError);
             // Keep original result_json as string if parsing fails
