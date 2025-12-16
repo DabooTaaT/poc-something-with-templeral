@@ -65,8 +65,12 @@ export default function Home() {
     versions,
     currentVersion,
     isLoadingVersions,
+    viewingVersion,
+    isViewMode,
     loadVersions,
     restoreVersion,
+    viewVersion,
+    backToCurrentVersion,
   } = useWorkflow();
 
   const { execution, status, runWorkflow, clearExecution, pollExecution } =
@@ -212,6 +216,13 @@ export default function Home() {
   }, []);
 
   const handleSaveWorkflow = useCallback(async () => {
+    if (isViewMode) {
+      alert(
+        "You are viewing a previous version. Please switch back to current version to save changes."
+      );
+      return;
+    }
+
     const validation = validate();
     if (!validation.valid) {
       setValidationErrors(validation.errors);
@@ -229,7 +240,14 @@ export default function Home() {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
       alert(`Failed to save workflow: ${errorMessage}`);
     }
-  }, [currentSnapshot, fetchHistory, saveWorkflow, validate, workflowName]);
+  }, [
+    currentSnapshot,
+    fetchHistory,
+    saveWorkflow,
+    validate,
+    workflowName,
+    isViewMode,
+  ]);
 
   const handleRunWorkflow = useCallback(async () => {
     const validation = validate();
@@ -378,6 +396,23 @@ export default function Home() {
     [workflow?.id, restoreVersion, workflowName, nodes, edges]
   );
 
+  const handleViewVersion = useCallback(
+    async (versionNumber: number) => {
+      if (!workflow?.id) return;
+      try {
+        await viewVersion(workflow.id, versionNumber);
+        // Note: nodes and edges will be updated by viewVersion,
+        // but we need to wait for the state update
+        // The snapshot will be updated when nodes/edges change
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        alert(`Failed to view version: ${errorMessage}`);
+      }
+    },
+    [workflow?.id, viewVersion]
+  );
+
   const historyPlaceholder = (
     <div className="rounded-lg border border-dashed border-gray-300 bg-white px-4 py-6 text-center text-sm text-gray-600">
       <p className="font-medium text-gray-900">No saved workflows yet</p>
@@ -445,7 +480,10 @@ export default function Home() {
               Versions
             </Button>
           )}
-          <Button onClick={handleSaveWorkflow} disabled={isLoading}>
+          <Button
+            onClick={handleSaveWorkflow}
+            disabled={isLoading || isViewMode}
+          >
             {isLoading ? "Saving..." : "Save"}
           </Button>
           <Button
@@ -457,6 +495,43 @@ export default function Home() {
           </Button>
         </div>
       </header>
+
+      {isViewMode && viewingVersion && (
+        <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border-l-4 border-yellow-400 p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-start gap-3 flex-1">
+              <svg
+                className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-yellow-800">
+                  Viewing Version {viewingVersion} (Read-Only)
+                </p>
+                <p className="text-xs text-yellow-600 mt-1">
+                  You are viewing a previous version. Changes will not be saved.
+                  Switch back to current version to make changes.
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={backToCurrentVersion}
+              variant="outline"
+              size="sm"
+              className="ml-4 border-yellow-300 text-yellow-800 hover:bg-yellow-100"
+            >
+              Back to Current Version
+            </Button>
+          </div>
+        </div>
+      )}
 
       {validationErrors.length > 0 && (
         <div className="bg-gradient-to-r from-red-50 to-red-100 border-l-4 border-red-500 p-4 shadow-sm animate-slide-down">
@@ -834,7 +909,9 @@ export default function Home() {
           versions={versions}
           currentVersion={currentVersion}
           isLoading={isLoadingVersions}
+          viewingVersion={viewingVersion}
           onRestore={handleRestoreVersion}
+          onView={handleViewVersion}
           onRefresh={handleRefreshVersions}
         />
       )}

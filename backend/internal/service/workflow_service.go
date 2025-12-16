@@ -220,20 +220,30 @@ func (s *WorkflowService) saveWorkflowVersion(ctx context.Context, wf *models.Wo
 	return err
 }
 
+// normalizeJSON normalizes JSON string by parsing and re-marshaling it
+// This ensures consistent comparison regardless of formatting differences
+func normalizeJSON(jsonStr string) (string, error) {
+	if jsonStr == "" {
+		return "", nil
+	}
+	var v interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &v); err != nil {
+		return "", err
+	}
+	normalized, err := json.Marshal(v)
+	if err != nil {
+		return "", err
+	}
+	return string(normalized), nil
+}
+
 // UpdateWorkflow updates a workflow record and re-validates the DAG
-// It automatically saves the current state as a version before updating
+// It automatically saves the current state as a version before updating (only if DAG has changed)
 func (s *WorkflowService) UpdateWorkflow(ctx context.Context, id, name string, dagStruct *models.DAGStructure) (*models.Workflow, error) {
 	// Get current workflow to save as version
 	currentWF, err := s.GetWorkflow(ctx, id)
 	if err != nil {
 		return nil, err
-	}
-
-	// Save current state as version (only if DAG is being updated)
-	if dagStruct != nil {
-		if err := s.saveWorkflowVersion(ctx, currentWF); err != nil {
-			return nil, fmt.Errorf("failed to save workflow version: %w", err)
-		}
 	}
 
 	var dagJSON string
@@ -247,6 +257,23 @@ func (s *WorkflowService) UpdateWorkflow(ctx context.Context, id, name string, d
 			return nil, err
 		}
 		dagJSON = string(bytes)
+		
+		// Only save version if DAG has actually changed
+		// Normalize both JSON strings for accurate comparison
+		normalizedNew, err := normalizeJSON(dagJSON)
+		if err != nil {
+			return nil, fmt.Errorf("failed to normalize new DAG JSON: %w", err)
+		}
+		normalizedCurrent, err := normalizeJSON(currentWF.DAGJson)
+		if err != nil {
+			return nil, fmt.Errorf("failed to normalize current DAG JSON: %w", err)
+		}
+		
+		if normalizedNew != normalizedCurrent {
+			if err := s.saveWorkflowVersion(ctx, currentWF); err != nil {
+				return nil, fmt.Errorf("failed to save workflow version: %w", err)
+			}
+		}
 	}
 
 	now := time.Now().UTC()

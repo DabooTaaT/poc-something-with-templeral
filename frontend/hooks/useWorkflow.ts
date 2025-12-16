@@ -12,8 +12,18 @@ export function useWorkflow() {
   const [versions, setVersions] = useState<WorkflowVersion[]>([]);
   const [currentVersion, setCurrentVersion] = useState<number>(0);
   const [isLoadingVersions, setIsLoadingVersions] = useState(false);
+  const [viewingVersion, setViewingVersion] = useState<number | null>(null);
+  const [isViewMode, setIsViewMode] = useState(false);
+  const [originalWorkflow, setOriginalWorkflow] = useState<Workflow | null>(null);
 
   const loadWorkflow = useCallback(async (id: string): Promise<Workflow | null> => {
+    // Reset view mode when loading a different workflow
+    if (isViewMode) {
+      setViewingVersion(null);
+      setIsViewMode(false);
+      setOriginalWorkflow(null);
+    }
+
     setIsLoading(true);
     setError(null);
     try {
@@ -68,6 +78,11 @@ export function useWorkflow() {
   }, []);
 
   const saveWorkflow = useCallback(async (name: string): Promise<string> => {
+    // Prevent saving when in view mode
+    if (isViewMode) {
+      throw new Error('Cannot save while viewing a previous version. Please switch back to current version first.');
+    }
+
     setIsLoading(true);
     setError(null);
     try {
@@ -110,7 +125,7 @@ export function useWorkflow() {
     } finally {
       setIsLoading(false);
     }
-  }, [nodes, edges, workflow]);
+  }, [nodes, edges, workflow, isViewMode]);
 
   const addNode = useCallback((type: 'start' | 'http' | 'output', position: { x: number; y: number }) => {
     const newNode: Node = {
@@ -224,6 +239,56 @@ export function useWorkflow() {
     }
   }, [loadVersions]);
 
+  const viewVersion = useCallback(async (workflowId: string, versionNumber: number): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // Save current workflow state before viewing version
+      if (workflow && !isViewMode) {
+        const currentWf: Workflow = {
+          id: workflow.id,
+          name: workflow.name,
+          version: workflow.version,
+          nodes: Array.isArray(nodes) ? nodes : [],
+          edges: Array.isArray(edges) ? edges : [],
+          createdAt: workflow.createdAt,
+          updatedAt: workflow.updatedAt,
+        };
+        setOriginalWorkflow(currentWf);
+      }
+
+      // Load version to view
+      const version = await apiClient.getWorkflowVersion(workflowId, versionNumber);
+      
+      if (!version.nodes || !version.edges) {
+        throw new Error('Version data is incomplete');
+      }
+
+      // Update nodes and edges to show version
+      setNodes(version.nodes);
+      setEdges(version.edges);
+      setViewingVersion(versionNumber);
+      setIsViewMode(true);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load version';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [workflow, nodes, edges, isViewMode]);
+
+  const backToCurrentVersion = useCallback(() => {
+    if (originalWorkflow) {
+      // Restore original workflow state
+      setNodes(originalWorkflow.nodes || []);
+      setEdges(originalWorkflow.edges || []);
+      setViewingVersion(null);
+      setIsViewMode(false);
+      setOriginalWorkflow(null);
+    }
+  }, [originalWorkflow]);
+
   const reset = useCallback(() => {
     setWorkflow(null);
     setNodes([]);
@@ -231,6 +296,9 @@ export function useWorkflow() {
     setError(null);
     setVersions([]);
     setCurrentVersion(0);
+    setViewingVersion(null);
+    setIsViewMode(false);
+    setOriginalWorkflow(null);
   }, []);
 
   return {
@@ -242,6 +310,8 @@ export function useWorkflow() {
     versions,
     currentVersion,
     isLoadingVersions,
+    viewingVersion,
+    isViewMode,
     loadWorkflow,
     saveWorkflow,
     addNode,
@@ -256,6 +326,8 @@ export function useWorkflow() {
     loadVersions,
     loadVersion,
     restoreVersion,
+    viewVersion,
+    backToCurrentVersion,
   };
 }
 
