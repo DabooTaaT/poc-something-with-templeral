@@ -52,13 +52,21 @@ func (s *WorkflowService) CreateWorkflow(ctx context.Context, name string, dagSt
 		return nil, err
 	}
 
-	return &models.Workflow{
+	// Create version 1 for the newly created workflow
+	wf := &models.Workflow{
 		ID:        id,
 		Name:      name,
 		DAGJson:   string(dagJSON),
 		CreatedAt: now,
 		UpdatedAt: now,
-	}, nil
+	}
+	if err := s.saveWorkflowVersion(ctx, wf); err != nil {
+		// Log error but don't fail the creation
+		// Version creation failure shouldn't prevent workflow creation
+		return nil, fmt.Errorf("failed to create initial version: %w", err)
+	}
+
+	return wf, nil
 }
 
 // GetWorkflow returns a workflow by ID
@@ -246,6 +254,18 @@ func (s *WorkflowService) UpdateWorkflow(ctx context.Context, id, name string, d
 		return nil, err
 	}
 
+	// Check if any versions exist - if not, create version 1
+	currentVersion, err := s.getCurrentVersionNumber(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current version: %w", err)
+	}
+	if currentVersion == 0 {
+		// Create version 1 if it doesn't exist
+		if err := s.saveWorkflowVersion(ctx, currentWF); err != nil {
+			return nil, fmt.Errorf("failed to create initial version: %w", err)
+		}
+	}
+
 	var dagJSON string
 	if dagStruct != nil {
 		validation := dag.ValidateDAG(dagStruct)
@@ -270,6 +290,7 @@ func (s *WorkflowService) UpdateWorkflow(ctx context.Context, id, name string, d
 		}
 		
 		if normalizedNew != normalizedCurrent {
+			// Save current state as a new version before updating
 			if err := s.saveWorkflowVersion(ctx, currentWF); err != nil {
 				return nil, fmt.Errorf("failed to save workflow version: %w", err)
 			}
@@ -296,7 +317,7 @@ func (s *WorkflowService) UpdateWorkflow(ctx context.Context, id, name string, d
 	}
 
 	// Set current version number
-	currentVersion, err := s.getCurrentVersionNumber(ctx, id)
+	currentVersion, err = s.getCurrentVersionNumber(ctx, id)
 	if err == nil && currentVersion > 0 {
 		updatedWF.Version = &currentVersion
 	}

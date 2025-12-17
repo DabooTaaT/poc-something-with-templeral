@@ -1,7 +1,5 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
-import type { Viewport } from "reactflow";
 import { ReactFlowProvider } from "reactflow";
 import { FlowCanvas } from "@/components/canvas/FlowCanvas";
 import { NodeConfigPanel } from "@/components/canvas/NodeConfigPanel";
@@ -10,41 +8,9 @@ import { VersionHistory } from "@/components/workflow/VersionHistory";
 import { Button } from "@/components/ui/Button";
 import { useWorkflow } from "@/hooks/useWorkflow";
 import { useExecution } from "@/hooks/useExecution";
-import { Node, Edge, WorkflowSummary } from "@/lib/types/dag";
-import { apiClient } from "@/lib/api/client";
-
-const DEFAULT_HISTORY_LIMIT = 20;
-const DRAFT_WORKFLOW_ID = "__draft__";
-const DEFAULT_VIEWPORT: Viewport = { x: 0, y: 0, zoom: 1 };
-
-const createSnapshot = (name: string, nodes: Node[], edges: Edge[]) =>
-  JSON.stringify({
-    name,
-    nodes,
-    edges,
-  });
-
-const formatRelativeTime = (timestamp?: string) => {
-  if (!timestamp) {
-    return "—";
-  }
-  const date = new Date(timestamp);
-  const diffMs = Date.now() - date.getTime();
-  const minutes = Math.floor(diffMs / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-};
-
-const statusClassMap: Record<string, string> = {
-  PENDING: "bg-slate-100 text-slate-700",
-  RUNNING: "bg-yellow-100 text-yellow-800",
-  COMPLETED: "bg-green-100 text-green-700",
-  FAILED: "bg-red-100 text-red-700",
-};
+import { Node } from "@/lib/types/dag";
+import { statusClassMap } from "./constant";
+import { useHomeController } from "./controller";
 
 export default function Home() {
   const {
@@ -76,342 +42,72 @@ export default function Home() {
   const { execution, status, runWorkflow, clearExecution, pollExecution } =
     useExecution();
 
-  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
-  const [showConfigPanel, setShowConfigPanel] = useState(false);
-  const [showExecutionResult, setShowExecutionResult] = useState(false);
-  const [showVersionHistory, setShowVersionHistory] = useState(false);
-  const [workflowName, setWorkflowName] = useState("My Workflow");
-  const [isWorkflowNameDirty, setIsWorkflowNameDirty] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [historyItems, setHistoryItems] = useState<WorkflowSummary[]>([]);
-  const [historyTotal, setHistoryTotal] = useState(0);
-  const [historyLimit, setHistoryLimit] = useState(DEFAULT_HISTORY_LIMIT);
-  const [historyOffset, setHistoryOffset] = useState(0);
-  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
-  const [isHistoryLoadingMore, setIsHistoryLoadingMore] = useState(false);
-  const [historyError, setHistoryError] = useState<string | null>(null);
-  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(
-    null
-  );
-  const [viewportCache, setViewportCache] = useState<Record<string, Viewport>>({
-    [DRAFT_WORKFLOW_ID]: DEFAULT_VIEWPORT,
-  });
-  const [lastPersistedSnapshot, setLastPersistedSnapshot] = useState<string>(
-    () => createSnapshot("My Workflow", [], [])
-  );
-
-  const workflowKey = workflow?.id ?? DRAFT_WORKFLOW_ID;
-  const activeViewport = viewportCache[workflowKey];
-  const currentSnapshot = useMemo(
-    () => createSnapshot(workflowName, nodes, edges),
-    [workflowName, nodes, edges]
-  );
-  const hasUnsavedChanges = currentSnapshot !== lastPersistedSnapshot;
-  const hasMoreHistory = historyItems.length < historyTotal;
-
-  const fetchHistory = useCallback(
-    async ({
-      offset = 0,
-      append = false,
-    }: { offset?: number; append?: boolean } = {}) => {
-      const isLoadMore = offset > 0;
-      if (isLoadMore) {
-        setIsHistoryLoadingMore(true);
-      } else {
-        setIsHistoryLoading(true);
-      }
-      setHistoryError(null);
-      try {
-        const response = await apiClient.listWorkflows({
-          limit: historyLimit,
-          offset,
-        });
-        setHistoryItems((prev) =>
-          append ? [...prev, ...response.items] : response.items
-        );
-        setHistoryTotal(response.total);
-        setHistoryLimit(response.limit ?? historyLimit);
-        setHistoryOffset(response.offset ?? offset);
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error
-            ? err.message
-            : "Failed to load workflow history";
-        setHistoryError(errorMessage);
-      } finally {
-        if (isLoadMore) {
-          setIsHistoryLoadingMore(false);
-        } else {
-          setIsHistoryLoading(false);
-        }
-      }
-    },
-    [historyLimit]
-  );
-
-  useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
-
-  useEffect(() => {
-    if (workflow?.name && !isWorkflowNameDirty) {
-      setWorkflowName(workflow.name);
-    }
-  }, [workflow?.id, workflow?.name, isWorkflowNameDirty]);
-
-  useEffect(() => {
-    if (workflow?.id) {
-      setSelectedHistoryId(workflow.id);
-    }
-  }, [workflow?.id]);
-
-  useEffect(() => {
-    if (status === "completed" || status === "failed") {
-      fetchHistory();
-    }
-  }, [status, fetchHistory]);
-
-  const handleAddNode = useCallback(
-    (
-      type: "start" | "http" | "code" | "output",
-      position?: { x: number; y: number }
-    ) => {
-      const nodePosition = position || {
-        x: Math.random() * 300 + 100,
-        y: Math.random() * 300 + 100,
-      };
-      addNode(type, nodePosition);
-    },
-    [addNode]
-  );
-
-  const handleNodeClick = useCallback((node: Node | null) => {
-    setSelectedNode(node);
-  }, []);
-
-  const handleNodeDoubleClick = useCallback((node: Node) => {
-    setSelectedNode(node);
-    setShowConfigPanel(true);
-  }, []);
-
-  const handleSaveNodeConfig = useCallback(
-    (nodeId: string, data: Node["data"]) => {
-      updateNode(nodeId, { data });
-      setShowConfigPanel(false);
-      setSelectedNode(null);
-    },
-    [updateNode]
-  );
-
-  const handleDeleteSelected = useCallback(() => {
-    if (selectedNode) {
-      deleteNode(selectedNode.id);
-      setSelectedNode(null);
-    }
-  }, [selectedNode, deleteNode]);
-
-  const handleWorkflowNameChange = useCallback((value: string) => {
-    setWorkflowName(value);
-    setIsWorkflowNameDirty(true);
-  }, []);
-
-  const handleSaveWorkflow = useCallback(async () => {
-    if (isViewMode) {
-      alert(
-        "You are viewing a previous version. Please switch back to current version to save changes."
-      );
-      return;
-    }
-
-    const validation = validate();
-    if (!validation.valid) {
-      setValidationErrors(validation.errors);
-      return;
-    }
-    setValidationErrors([]);
-    try {
-      const savedId = await saveWorkflow(workflowName);
-      setLastPersistedSnapshot(currentSnapshot);
-      setIsWorkflowNameDirty(false);
-      setSelectedHistoryId(savedId);
-      await fetchHistory({ offset: 0, append: false });
-      alert("Workflow saved successfully!");
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      alert(`Failed to save workflow: ${errorMessage}`);
-    }
-  }, [
-    currentSnapshot,
-    fetchHistory,
-    saveWorkflow,
-    validate,
+  const {
+    selectedNode,
+    setSelectedNode,
+    showConfigPanel,
+    setShowConfigPanel,
+    showExecutionResult,
+    setShowExecutionResult,
+    showVersionHistory,
+    setShowVersionHistory,
     workflowName,
+    validationErrors,
+    historyItems,
+    historyTotal,
+    isHistoryLoading,
+    isHistoryLoadingMore,
+    historyError,
+    selectedHistoryId,
+    activeViewport,
+    hasUnsavedChanges,
+    hasMoreHistory,
+    historyOffset,
+    handleAddNode,
+    handleNodeClick,
+    handleNodeDoubleClick,
+    handleSaveNodeConfig,
+    handleDeleteSelected,
+    handleWorkflowNameChange,
+    handleSaveWorkflow,
+    handleRunWorkflow,
+    handleRunWorkflowFromHistory,
+    handleViewportChange,
+    handleEditWorkflow,
+    handleCreateNewWorkflow,
+    handleViewExecutionResult,
+    handleRefreshVersions,
+    handleRestoreVersion,
+    handleViewVersion,
+    fetchHistory,
+    formatRelativeTime,
+  } = useHomeController({
+    workflow,
+    nodes,
+    edges,
+    isLoading,
     isViewMode,
-  ]);
+    currentVersion,
+    viewingVersion,
+    saveWorkflow,
+    addNode,
+    updateNode,
+    deleteNode,
+    validate,
+    setNodes,
+    setEdges,
+    loadWorkflow,
+    reset,
+    runWorkflow,
+    status,
+    loadVersions,
+    restoreVersion,
+    viewVersion,
+    backToCurrentVersion,
+    pollExecution,
+    clearExecution,
+  });
 
-  const handleRunWorkflow = useCallback(async () => {
-    const validation = validate();
-    if (!validation.valid) {
-      setValidationErrors(validation.errors);
-      alert(`Validation failed: ${validation.errors.join(", ")}`);
-      return;
-    }
-    setValidationErrors([]);
-
-    let workflowId: string;
-    try {
-      workflowId = await saveWorkflow(workflowName);
-      setLastPersistedSnapshot(currentSnapshot);
-      setIsWorkflowNameDirty(false);
-      setSelectedHistoryId(workflowId);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      alert(`Failed to save workflow: ${errorMessage}`);
-      return;
-    }
-
-    try {
-      await runWorkflow(workflowId);
-      setShowExecutionResult(true);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      alert(`Failed to run workflow: ${errorMessage}`);
-    }
-  }, [currentSnapshot, runWorkflow, saveWorkflow, validate, workflowName]);
-
-  const handleRunWorkflowFromHistory = useCallback(
-    async (workflowId: string) => {
-      try {
-        await runWorkflow(workflowId);
-        setSelectedHistoryId(workflowId);
-        setShowExecutionResult(true);
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Unknown error";
-        alert(`Failed to run workflow: ${errorMessage}`);
-      }
-    },
-    [runWorkflow]
-  );
-
-  const handleViewportChange = useCallback(
-    (viewport: Viewport) => {
-      const key = workflow?.id ?? DRAFT_WORKFLOW_ID;
-      setViewportCache((prev) => ({
-        ...prev,
-        [key]: viewport,
-      }));
-    },
-    [workflow?.id]
-  );
-
-  const handleEditWorkflow = useCallback(
-    async (workflowId: string) => {
-      if (workflowId === workflow?.id) {
-        return;
-      }
-      if (hasUnsavedChanges) {
-        const confirmed = window.confirm(
-          "You have unsaved changes. Continue without saving?"
-        );
-        if (!confirmed) {
-          return;
-        }
-      }
-
-      setSelectedHistoryId(workflowId);
-      const loaded = await loadWorkflow(workflowId);
-      if (!loaded) {
-        return;
-      }
-
-      setWorkflowName(loaded.name || "Untitled Workflow");
-      setIsWorkflowNameDirty(false);
-      setLastPersistedSnapshot(
-        createSnapshot(
-          loaded.name || "Untitled Workflow",
-          loaded.nodes,
-          loaded.edges
-        )
-      );
-      setViewportCache((prev) =>
-        prev[workflowId]
-          ? prev
-          : {
-              ...prev,
-              [workflowId]: DEFAULT_VIEWPORT,
-            }
-      );
-    },
-    [hasUnsavedChanges, loadWorkflow, workflow?.id]
-  );
-
-  const handleCreateNewWorkflow = useCallback(() => {
-    if (hasUnsavedChanges) {
-      const confirmed = window.confirm(
-        "Discard current changes and start a new workflow?"
-      );
-      if (!confirmed) {
-        return;
-      }
-    }
-    reset();
-    setWorkflowName("My Workflow");
-    setIsWorkflowNameDirty(false);
-    setSelectedHistoryId(null);
-    setLastPersistedSnapshot(createSnapshot("My Workflow", [], []));
-    setViewportCache((prev) => ({
-      ...prev,
-      [DRAFT_WORKFLOW_ID]: DEFAULT_VIEWPORT,
-    }));
-  }, [hasUnsavedChanges, reset]);
-
-  const handleViewExecutionResult = useCallback(
-    async (executionId: string) => {
-      try {
-        await pollExecution(executionId);
-        setShowExecutionResult(true);
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Failed to load execution";
-        alert(errorMessage);
-      }
-    },
-    [pollExecution]
-  );
-
-  const handleRefreshVersions = useCallback(async () => {
-    if (workflow?.id) {
-      await loadVersions(workflow.id);
-    }
-  }, [workflow?.id, loadVersions]);
-
-  const handleRestoreVersion = useCallback(
-    async (versionNumber: number) => {
-      if (!workflow?.id) return;
-      await restoreVersion(workflow.id, versionNumber);
-      setLastPersistedSnapshot(createSnapshot(workflowName, nodes, edges));
-      setIsWorkflowNameDirty(false);
-    },
-    [workflow?.id, restoreVersion, workflowName, nodes, edges]
-  );
-
-  const handleViewVersion = useCallback(
-    async (versionNumber: number) => {
-      if (!workflow?.id) return;
-      try {
-        await viewVersion(workflow.id, versionNumber);
-        // Note: nodes and edges will be updated by viewVersion,
-        // but we need to wait for the state update
-        // The snapshot will be updated when nodes/edges change
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
-        alert(`Failed to view version: ${errorMessage}`);
-      }
-    },
-    [workflow?.id, viewVersion]
-  );
 
   const historyPlaceholder = (
     <div className="rounded-lg border border-dashed border-gray-300 bg-white px-4 py-6 text-center text-sm text-gray-600">

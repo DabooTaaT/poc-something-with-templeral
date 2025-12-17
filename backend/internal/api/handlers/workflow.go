@@ -23,7 +23,7 @@ type workflowResponse struct {
 	Name      string        `json:"name"`
 	Nodes     []models.Node `json:"nodes"`
 	Edges     []models.Edge `json:"edges"`
-	Version   *int          `json:"version,omitempty"`
+	Version   *int          `json:"version"`
 	CreatedAt time.Time     `json:"createdAt"`
 	UpdatedAt time.Time     `json:"updatedAt"`
 }
@@ -34,12 +34,19 @@ func (h *WorkflowHandler) toWorkflowResponse(wf *models.Workflow) (*workflowResp
 		return nil, err
 	}
 
+	// Default to version 1 if Version is nil or empty
+	version := wf.Version
+	if version == nil {
+		defaultVersion := 1
+		version = &defaultVersion
+	}
+
 	return &workflowResponse{
 		ID:        wf.ID,
 		Name:      wf.Name,
 		Nodes:     dagStruct.Nodes,
 		Edges:     dagStruct.Edges,
-		Version:   wf.Version,
+		Version:   version,
 		CreatedAt: wf.CreatedAt,
 		UpdatedAt: wf.UpdatedAt,
 	}, nil
