@@ -12,7 +12,12 @@ import {
   CodeNodeData,
   OutputNodeData,
 } from "@/lib/types/dag";
-import { isStartNode, isHttpNode, isCodeNode, isOutputNode } from "@/lib/types/dag";
+import {
+  isStartNode,
+  isHttpNode,
+  isCodeNode,
+  isOutputNode,
+} from "@/lib/types/dag";
 
 interface NodeConfigPanelProps {
   node: Node | null;
@@ -468,14 +473,58 @@ if (Array.isArray(posts)) {
                   />
                 </div>
                 <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-xs font-semibold text-blue-900 mb-2">📝 How to use:</p>
+                  <p className="text-xs font-semibold text-blue-900 mb-2">
+                    📝 How to use:
+                  </p>
                   <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
-                    <li>Use <code className="bg-blue-100 px-1 rounded">response</code> or <code className="bg-blue-100 px-1 rounded">data</code> to access previous node's output</li>
-                    <li>You must <code className="bg-blue-100 px-1 rounded">return</code> a value (object, array, string, number, etc.)</li>
-                    <li>If you don't write <code className="bg-blue-100 px-1 rounded">return</code>, the system will auto-return <code className="bg-blue-100 px-1 rounded">response</code></li>
-                    <li><strong>⚠️ Optional chaining (<code className="bg-blue-100 px-1 rounded">?.</code>) is NOT supported</strong> - Use <code className="bg-blue-100 px-1 rounded">if (response && response.data)</code> instead</li>
-                    <li><strong>⚠️ Array methods (<code className="bg-blue-100 px-1 rounded">.map()</code>, <code className="bg-blue-100 px-1 rounded">.filter()</code>)</strong> only work on arrays - Check with <code className="bg-blue-100 px-1 rounded">Array.isArray()</code> first</li>
-                    <li>Leave empty for passthrough mode (no transformation)</li>
+                    <li>
+                      Use{" "}
+                      <code className="bg-blue-100 px-1 rounded">response</code>{" "}
+                      or <code className="bg-blue-100 px-1 rounded">data</code>{" "}
+                      to access previous node&apos;s output
+                    </li>
+                    <li>
+                      You must{" "}
+                      <code className="bg-blue-100 px-1 rounded">return</code> a
+                      value (object, array, string, number, etc.)
+                    </li>
+                    <li>
+                      If you don&apos;t write{" "}
+                      <code className="bg-blue-100 px-1 rounded">return</code>,
+                      the system will auto-return{" "}
+                      <code className="bg-blue-100 px-1 rounded">response</code>
+                    </li>
+                    <li>
+                      <strong>
+                        ⚠️ Optional chaining (
+                        <code className="bg-blue-100 px-1 rounded">?.</code>) is
+                        NOT supported
+                      </strong>{" "}
+                      - Use{" "}
+                      <code className="bg-blue-100 px-1 rounded">
+                        if (response && response.data)
+                      </code>{" "}
+                      instead
+                    </li>
+                    <li>
+                      <strong>
+                        ⚠️ Array methods (
+                        <code className="bg-blue-100 px-1 rounded">.map()</code>
+                        ,{" "}
+                        <code className="bg-blue-100 px-1 rounded">
+                          .filter()
+                        </code>
+                        )
+                      </strong>{" "}
+                      only work on arrays - Check with{" "}
+                      <code className="bg-blue-100 px-1 rounded">
+                        Array.isArray()
+                      </code>{" "}
+                      first
+                    </li>
+                    <li>
+                      Leave empty for passthrough mode (no transformation)
+                    </li>
                   </ul>
                 </div>
               </div>

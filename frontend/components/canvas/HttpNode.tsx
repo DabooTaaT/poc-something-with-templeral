@@ -3,63 +3,112 @@
 import { Handle, Position, NodeProps } from "reactflow";
 import { HttpNodeData } from "@/lib/types/dag";
 
-const methodColors: Record<string, string> = {
-  GET: "from-blue-500 to-blue-600",
-  POST: "from-green-500 to-green-600",
-  PUT: "from-yellow-500 to-yellow-600",
-  DELETE: "from-red-500 to-red-600",
-  PATCH: "from-purple-500 to-purple-600",
+const methodBadgeColors: Record<string, string> = {
+  GET: "bg-blue-100 text-blue-800",
+  POST: "bg-green-100 text-green-800",
+  PUT: "bg-orange-100 text-orange-800",
+  DELETE: "bg-red-100 text-red-800",
+  PATCH: "bg-purple-100 text-purple-800",
 };
 
 export function HttpNode({ data, selected }: NodeProps<HttpNodeData>) {
   const method = data.method || "GET";
   const url = data.url || "";
   const truncatedUrl =
-    url && url.length > 35
-      ? `${url.substring(0, 35)}...`
-      : url || "No URL";
+    url && url.length > 30
+      ? `${url.substring(0, 30)}...`
+      : url || "No URL Configured";
 
   return (
     <div
-      className={`px-5 py-4 bg-gradient-to-br ${
-        methodColors[method] || methodColors.GET
-      } rounded-xl shadow-lg border-2 min-w-[200px] transition-[opacity,transform,shadow,border-color] duration-150 ${
+      className={`relative min-w-[240px] bg-white rounded-xl shadow-md border transition-all duration-200 group ${
         selected
-          ? "border-blue-700 ring-4 ring-blue-300/50 shadow-xl scale-105"
-          : "border-blue-600/80 hover:shadow-xl hover:scale-[1.02]"
+          ? "border-blue-500 ring-2 ring-blue-500/20 shadow-xl"
+          : "border-gray-200 hover:border-blue-300 hover:shadow-lg"
       }`}
-      style={{ willChange: "transform" }}
     >
-      <div className="flex items-center gap-2 mb-2">
-        <svg
-          className="w-4 h-4 text-white/90"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+      {/* Header Line */}
+      <div
+        className={`h-1.5 w-full rounded-t-xl bg-gradient-to-r ${
+          method === "GET"
+            ? "from-blue-400 to-blue-600"
+            : method === "POST"
+            ? "from-green-400 to-green-600"
+            : method === "DELETE"
+            ? "from-red-400 to-red-600"
+            : method === "PUT"
+            ? "from-orange-400 to-orange-600"
+            : "from-purple-400 to-purple-600"
+        }`}
+      />
+
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div
+              className={`p-1.5 rounded-lg ${
+                method === "GET"
+                  ? "bg-blue-100 text-blue-600"
+                  : method === "POST"
+                  ? "bg-green-100 text-green-600"
+                  : method === "DELETE"
+                  ? "bg-red-100 text-red-600"
+                  : method === "PUT"
+                  ? "bg-orange-100 text-orange-600"
+                  : "bg-purple-100 text-purple-600"
+              }`}
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+                />
+              </svg>
+            </div>
+            <span className="font-semibold text-gray-900">HTTP Request</span>
+          </div>
+          <span
+            className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider ${methodBadgeColors[method]}`}
+          >
+            {method}
+          </span>
+        </div>
+
+        <div
+          className={`px-3 py-2 rounded-lg bg-gray-50 border border-gray-100 flex items-center gap-2`}
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2.5}
-            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+          <div
+            className={`w-1.5 h-1.5 rounded-full ${
+              url ? "bg-green-400" : "bg-gray-300"
+            }`}
           />
-        </svg>
-        <div className="text-white font-bold text-xs px-2 py-0.5 bg-white/20 rounded-md backdrop-blur-sm">
-          {method}
+          <span
+            className={`text-xs font-mono truncate ${
+              url ? "text-gray-600" : "text-gray-400 italic"
+            }`}
+            title={url}
+          >
+            {truncatedUrl}
+          </span>
         </div>
       </div>
-      <div className="text-white text-xs truncate font-medium" title={data.url}>
-        {truncatedUrl}
-      </div>
+
       <Handle
         type="target"
         position={Position.Left}
-        className="w-4 h-4 bg-white border-3 border-blue-600 shadow-md hover:bg-blue-50 transition-colors"
+        className="!w-3 !h-3 !bg-gray-400 !border-2 !border-white shadow-sm hover:!bg-blue-500 hover:scale-125 transition-all"
       />
       <Handle
         type="source"
         position={Position.Right}
-        className="w-4 h-4 bg-white border-3 border-blue-600 shadow-md hover:bg-blue-50 transition-colors"
+        className="!w-3 !h-3 !bg-gray-400 !border-2 !border-white shadow-sm hover:!bg-blue-500 hover:scale-125 transition-all"
       />
     </div>
   );

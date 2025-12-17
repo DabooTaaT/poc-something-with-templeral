@@ -150,11 +150,23 @@ body {
 .react-flow__node {
   border: none !important;
   outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
-.react-flow__node > div {
+/* Specific cleanup for selected state */
+.react-flow__node.selected,
+.react-flow__node:focus,
+.react-flow__node:focus-visible {
   border: none !important;
   outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Ensure children can have their own borders */
+.react-flow__node > div {
+  border: inherit;
+  outline: inherit;
 }
 
 /* Remove border from specific node types */

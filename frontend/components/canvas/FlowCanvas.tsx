@@ -18,6 +18,7 @@ import ReactFlow, {
   applyEdgeChanges,
   useReactFlow,
   Viewport,
+  MarkerType,
 } from "reactflow";
 import "reactflow/dist/style.css";
 
@@ -39,7 +40,7 @@ interface FlowCanvasProps {
   onNodeDoubleClick?: (node: DAGNode) => void;
   onNodeClick?: (node: DAGNode | null) => void;
   onAddNode?: (
-    type: "start" | "http" | "output",
+    type: "start" | "http" | "code" | "output",
     position: { x: number; y: number }
   ) => void;
   viewport?: Viewport;
@@ -344,8 +345,16 @@ export function FlowCanvas({
         fitView
         className="bg-transparent"
         defaultEdgeOptions={{
-          style: { strokeWidth: 2.5 },
-          animated: false, // Disable edge animation for better performance
+          type: "smoothstep",
+          animated: true,
+          style: {
+            strokeWidth: 2,
+            stroke: "#94a3b8", // slate-400
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: "#94a3b8",
+          },
         }}
         // Performance optimizations
         onlyRenderVisibleElements={true} // Enable for better performance

@@ -729,34 +729,104 @@ export default function Home() {
               </svg>
               Add Nodes
             </h2>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {["start", "http", "code", "output"].map((nodeType) => {
                 const config = {
                   start: {
                     label: "Start Node",
+                    desc: "Begin workflow execution",
                     classes:
-                      "from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700",
+                      "from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-emerald-200",
+                    icon: (
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    ),
                   },
                   http: {
-                    label: "HTTP Node",
+                    label: "HTTP Request",
+                    desc: "Make API calls",
                     classes:
-                      "from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700",
+                      "from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-blue-200",
+                    icon: (
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+                        />
+                      </svg>
+                    ),
                   },
                   code: {
-                    label: "Code Node",
+                    label: "Code Execution",
+                    desc: "Run JavaScript code",
                     classes:
-                      "from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700",
+                      "from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 shadow-purple-200",
+                    icon: (
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+                        />
+                      </svg>
+                    ),
                   },
                   output: {
-                    label: "Output Node",
+                    label: "Output Result",
+                    desc: "Display final results",
                     classes:
-                      "from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700",
+                      "from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 shadow-orange-200",
+                    icon: (
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    ),
                   },
                 } as const;
-                const { label, classes } =
+                const { label, desc, classes, icon } =
                   config[nodeType as "start" | "http" | "code" | "output"];
                 return (
-                  <button
+                  <div
                     key={nodeType}
                     draggable
                     onDragStart={(e) => {
@@ -768,10 +838,42 @@ export default function Home() {
                         nodeType as "start" | "http" | "code" | "output"
                       )
                     }
-                    className={`w-full px-4 py-3 bg-gradient-to-r ${classes} text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 font-medium group cursor-grab active:cursor-grabbing`}
+                    className={`group relative overflow-hidden p-4 rounded-xl bg-white border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 cursor-grab active:cursor-grabbing hover:border-transparent`}
                   >
-                    {label}
-                  </button>
+                    <div
+                      className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity bg-gradient-to-r ${classes}`}
+                    />
+                    <div className="flex items-center gap-4 relative z-10">
+                      <div
+                        className={`p-2.5 rounded-lg bg-gradient-to-br ${classes} text-white shadow-lg`}
+                      >
+                        {icon}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 group-hover:text-gray-900 transition-colors">
+                          {label}
+                        </h3>
+                        <p className="text-xs text-gray-500 group-hover:text-gray-600">
+                          {desc}
+                        </p>
+                      </div>
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-2 group-hover:translate-x-0">
+                        <svg
+                          className="w-5 h-5 text-gray-400"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
                 );
               })}
             </div>

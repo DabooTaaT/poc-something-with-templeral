@@ -28,7 +28,6 @@ export function useExecution() {
         
         // Parse result_json if it exists (it's a JSON string from backend)
         let parsedResult = exec.result;
-        console.log(exec,"exec");
         
         if (exec.result_json) {
           try {
