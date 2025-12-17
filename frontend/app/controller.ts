@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import type { Viewport } from "reactflow";
 import { Node, Edge, WorkflowSummary } from "@/lib/types/dag";
 import { apiClient } from "@/lib/api/client";
+import { useToast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmationDialog";
 import { createSnapshot, formatRelativeTime } from "./utils";
 import { DRAFT_WORKFLOW_ID, DEFAULT_VIEWPORT } from "./constant";
 
@@ -27,8 +29,8 @@ interface UseHomeControllerProps {
   reset: () => void;
   runWorkflow: (id: string) => Promise<void>;
   status: string;
-  loadVersions: (id: string) => Promise<void>;
-  restoreVersion: (id: string, versionNumber: number) => Promise<void>;
+  loadVersions: (id: string) => Promise<unknown>;
+  restoreVersion: (id: string, versionNumber: number) => Promise<unknown>;
   viewVersion: (id: string, versionNumber: number) => Promise<void>;
   backToCurrentVersion: () => void;
   pollExecution: (id: string) => Promise<void>;
@@ -61,6 +63,8 @@ export function useHomeController({
   pollExecution,
   clearExecution,
 }: UseHomeControllerProps) {
+  const { showSuccess, showError, showWarning } = useToast();
+  const { showConfirm } = useConfirm();
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [showConfigPanel, setShowConfigPanel] = useState(false);
   const [showExecutionResult, setShowExecutionResult] = useState(false);
@@ -200,7 +204,7 @@ export function useHomeController({
 
   const handleSaveWorkflow = useCallback(async () => {
     if (isViewMode) {
-      alert(
+      showWarning(
         "You are viewing a previous version. Please switch back to current version to save changes."
       );
       return;
@@ -218,10 +222,10 @@ export function useHomeController({
       setIsWorkflowNameDirty(false);
       setSelectedHistoryId(savedId);
       await fetchHistory({ offset: 0, append: false });
-      alert("Workflow saved successfully!");
+      showSuccess("Workflow saved successfully!");
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      alert(`Failed to save workflow: ${errorMessage}`);
+      showError(`Failed to save workflow: ${errorMessage}`);
     }
   }, [
     currentSnapshot,
@@ -230,13 +234,16 @@ export function useHomeController({
     validate,
     workflowName,
     isViewMode,
+    showSuccess,
+    showError,
+    showWarning,
   ]);
 
   const handleRunWorkflow = useCallback(async () => {
     const validation = validate();
     if (!validation.valid) {
       setValidationErrors(validation.errors);
-      alert(`Validation failed: ${validation.errors.join(", ")}`);
+      showError(`Validation failed: ${validation.errors.join(", ")}`);
       return;
     }
     setValidationErrors([]);
@@ -249,7 +256,7 @@ export function useHomeController({
       setSelectedHistoryId(workflowId);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      alert(`Failed to save workflow: ${errorMessage}`);
+      showError(`Failed to save workflow: ${errorMessage}`);
       return;
     }
 
@@ -258,9 +265,9 @@ export function useHomeController({
       setShowExecutionResult(true);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      alert(`Failed to run workflow: ${errorMessage}`);
+      showError(`Failed to run workflow: ${errorMessage}`);
     }
-  }, [currentSnapshot, runWorkflow, saveWorkflow, validate, workflowName]);
+  }, [currentSnapshot, runWorkflow, saveWorkflow, validate, workflowName, showError]);
 
   const handleRunWorkflowFromHistory = useCallback(
     async (workflowId: string) => {
@@ -271,10 +278,10 @@ export function useHomeController({
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Unknown error";
-        alert(`Failed to run workflow: ${errorMessage}`);
+        showError(`Failed to run workflow: ${errorMessage}`);
       }
     },
-    [runWorkflow]
+    [runWorkflow, showError]
   );
 
   const handleViewportChange = useCallback(
@@ -288,20 +295,8 @@ export function useHomeController({
     [workflow?.id]
   );
 
-  const handleEditWorkflow = useCallback(
+  const proceedWithEditWorkflow = useCallback(
     async (workflowId: string) => {
-      if (workflowId === workflow?.id) {
-        return;
-      }
-      if (hasUnsavedChanges) {
-        const confirmed = window.confirm(
-          "You have unsaved changes. Continue without saving?"
-        );
-        if (!confirmed) {
-          return;
-        }
-      }
-
       setSelectedHistoryId(workflowId);
       const loaded = await loadWorkflow(workflowId);
       if (!loaded) {
@@ -326,18 +321,30 @@ export function useHomeController({
             }
       );
     },
-    [hasUnsavedChanges, loadWorkflow, workflow?.id]
+    [loadWorkflow]
   );
 
-  const handleCreateNewWorkflow = useCallback(() => {
-    if (hasUnsavedChanges) {
-      const confirmed = window.confirm(
-        "Discard current changes and start a new workflow?"
-      );
-      if (!confirmed) {
+  const handleEditWorkflow = useCallback(
+    async (workflowId: string) => {
+      if (workflowId === workflow?.id) {
         return;
       }
-    }
+      if (hasUnsavedChanges) {
+        showConfirm({
+          message: "You have unsaved changes. Continue without saving?",
+          onConfirm: () => {
+            proceedWithEditWorkflow(workflowId);
+          },
+        });
+        return;
+      }
+
+      proceedWithEditWorkflow(workflowId);
+    },
+    [hasUnsavedChanges, workflow?.id, showConfirm, proceedWithEditWorkflow]
+  );
+
+  const createNewWorkflow = useCallback(() => {
     reset();
     setWorkflowName("My Workflow");
     setIsWorkflowNameDirty(false);
@@ -347,7 +354,18 @@ export function useHomeController({
       ...prev,
       [DRAFT_WORKFLOW_ID]: DEFAULT_VIEWPORT,
     }));
-  }, [hasUnsavedChanges, reset]);
+  }, [reset]);
+
+  const handleCreateNewWorkflow = useCallback(() => {
+    if (hasUnsavedChanges) {
+      showConfirm({
+        message: "Discard current changes and start a new workflow?",
+        onConfirm: createNewWorkflow,
+      });
+      return;
+    }
+    createNewWorkflow();
+  }, [hasUnsavedChanges, showConfirm, createNewWorkflow]);
 
   const handleViewExecutionResult = useCallback(
     async (executionId: string) => {
@@ -357,10 +375,10 @@ export function useHomeController({
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to load execution";
-        alert(errorMessage);
+        showError(errorMessage);
       }
     },
-    [pollExecution]
+    [pollExecution, showError]
   );
 
   const handleRefreshVersions = useCallback(async () => {
@@ -387,10 +405,10 @@ export function useHomeController({
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
-        alert(`Failed to view version: ${errorMessage}`);
+        showError(`Failed to view version: ${errorMessage}`);
       }
     },
-    [workflow?.id, viewVersion]
+    [workflow?.id, viewVersion, showError]
   );
 
   return {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { VersionHistoryProps } from "./interface";
+import { useToast } from "@/components/ui/Toast";
 
 export function useVersionHistoryController({
   isOpen,
@@ -9,6 +10,7 @@ export function useVersionHistoryController({
   onView,
   onClose,
 }: VersionHistoryProps) {
+  const { showError } = useToast();
   const [restoringVersion, setRestoringVersion] = useState<number | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState<number | null>(
     null
@@ -51,7 +53,7 @@ export function useVersionHistoryController({
       onClose();
     } catch (error) {
       console.error("Failed to restore version:", error);
-      alert("Failed to restore version. Please try again.");
+      showError("Failed to restore version. Please try again.");
     } finally {
       setRestoringVersion(null);
     }
@@ -67,7 +69,7 @@ export function useVersionHistoryController({
       onClose();
     } catch (error) {
       console.error("Failed to view version:", error);
-      alert("Failed to load version. Please try again.");
+      showError("Failed to load version. Please try again.");
     }
   };
 

@@ -6,9 +6,9 @@ import { NodeConfigPanel } from "@/components/canvas/NodeConfigPanel";
 import { ExecutionResult } from "@/components/execution/ExecutionResult";
 import { VersionHistory } from "@/components/workflow/VersionHistory";
 import { Button } from "@/components/ui/Button";
+import { ToastContainer } from "@/components/ui/Toast";
 import { useWorkflow } from "@/hooks/useWorkflow";
 import { useExecution } from "@/hooks/useExecution";
-import { Node } from "@/lib/types/dag";
 import { statusClassMap } from "./constant";
 import { useHomeController } from "./controller";
 
@@ -107,7 +107,6 @@ export default function Home() {
     pollExecution,
     clearExecution,
   });
-
 
   const historyPlaceholder = (
     <div className="rounded-lg border border-dashed border-gray-300 bg-white px-4 py-6 text-center text-sm text-gray-600">
@@ -777,6 +776,8 @@ export default function Home() {
           )}
         </div>
       </footer>
+
+      <ToastContainer position="top-right" />
     </div>
   );
 }

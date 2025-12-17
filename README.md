@@ -614,6 +614,55 @@ docker exec -it workflow_postgres psql -U workflow_user -d workflow_db -c "SELEC
 - **[View Version Feature](./VIEW_VERSION_FEATURE.md)** - ฟีเจอร์ View Version (Read-Only)
 - **[JSONPlaceholder Example](./JSONPLACEHOLDER_EXAMPLE.md)** - ตัวอย่างการใช้งาน JSONPlaceholder API
 
+### Code Quality & Refactoring
+- **[Frontend Clean Code Plan](./FRONTEND_CLEAN_CODE_PLAN.md)** - แผนการปรับปรุง Clean Code สำหรับ Frontend
+
+#### สรุปแผนการปรับปรุง Frontend Clean Code
+
+แผนการปรับปรุงแบ่งเป็น **5 Phases** เพื่อแก้ปัญหาหลัก:
+
+**ปัญหาที่พบ:**
+- `page.tsx` ใหญ่เกินไป (782 บรรทัด) - มี JSX มากมาย inline
+- ใช้ `alert()` แทน Toast/Notification - ไม่เป็นมิตรกับผู้ใช้
+- Hardcoded Configuration - node types config อยู่ใน page.tsx
+- Component Structure - ยังแยกได้ดีกว่านี้
+- Error Handling - ไม่สม่ำเสมอ ใช้ alert() หลายที่
+- Magic Strings/Numbers - มี hardcoded values หลายที่
+- Code Duplication - มี logic ที่ซ้ำกัน
+- Type Safety - บางจุดใช้ `any` หรือ type assertion
+
+**Phase 1: Extract Components & Configuration** ⭐ Priority: High
+- แยก Node Types Configuration ออกจาก UI
+- แยก Header Component
+- แยก Sidebar Components (History, Node Palette)
+- แทนที่ `alert()` ด้วย Toast/Notification system
+
+**Phase 2: Improve State Management & Hooks** ⭐ Priority: High
+- สร้าง Custom Hooks สำหรับ History Management
+- ปรับปรุง Error Handling ให้สม่ำเสมอ
+- สร้าง Constants File เพื่อรวม magic strings/numbers
+
+**Phase 3: Refactor Large Files** ⭐ Priority: Medium
+- แยก `page.tsx` เป็น Layout + Sections (ลดเหลือ ~100 บรรทัด)
+- แยก `controller.ts` เป็น Multiple Hooks
+
+**Phase 4: Improve Type Safety** ⭐ Priority: Medium
+- สร้าง Strict Types
+- สร้าง Type Guards
+
+**Phase 5: Code Quality Improvements** ⭐ Priority: Low
+- Extract Utility Functions
+- สร้าง Custom Hooks สำหรับ Common Patterns
+
+**เป้าหมายหลัง Refactoring:**
+- `page.tsx`: < 150 บรรทัด (จาก 782 บรรทัด)
+- Largest component: < 300 บรรทัด
+- `alert()` calls: 0 (แทนที่ด้วย Toast)
+- Hardcoded configs: Centralized ใน constants/
+- Type safety: 100% typed, ไม่มี `any`
+
+ดูรายละเอียดเพิ่มเติมใน [FRONTEND_CLEAN_CODE_PLAN.md](./FRONTEND_CLEAN_CODE_PLAN.md)
+
 ### Troubleshooting
 - **[CORS Fix Summary](./CORS_FIX_SUMMARY.md)** - สรุปการแก้ไข CORS Issues
 
