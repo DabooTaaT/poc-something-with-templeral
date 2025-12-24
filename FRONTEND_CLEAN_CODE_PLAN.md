@@ -434,3 +434,4 @@ frontend/
 - **Code review** - Review code หลังแต่ละ phase
 - **Documentation** - Update docs และ comments ตาม refactoring
 
+

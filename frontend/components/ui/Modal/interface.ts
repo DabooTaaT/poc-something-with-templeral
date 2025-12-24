@@ -8,3 +8,4 @@ export interface ModalProps {
   size?: "sm" | "md" | "lg" | "xl";
 }
 
+

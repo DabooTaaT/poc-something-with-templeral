@@ -6,3 +6,4 @@ export const methodBadgeColors: Record<string, string> = {
   PATCH: "bg-purple-100 text-purple-800",
 };
 
+

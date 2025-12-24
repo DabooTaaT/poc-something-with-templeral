@@ -127,3 +127,4 @@ export function ExecutionResult({ execution, onClose }: ExecutionResultProps) {
 - Status color mapping is extracted for better maintainability
 - Duration formatting is extracted for reusability
 
+

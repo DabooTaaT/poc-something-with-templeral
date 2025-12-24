@@ -18,9 +18,7 @@ interface ConfirmationProviderProps {
   children: ReactNode;
 }
 
-export function ConfirmationProvider({
-  children,
-}: ConfirmationProviderProps) {
+export function ConfirmationProvider({ children }: ConfirmationProviderProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [options, setOptions] = useState<ConfirmationOptions | null>(null);
 
@@ -55,10 +53,7 @@ export function ConfirmationProvider({
 export function useConfirmationContext() {
   const context = useContext(ConfirmationContext);
   if (context === undefined) {
-    throw new Error(
-      "useConfirm must be used within a ConfirmationProvider"
-    );
+    throw new Error("useConfirm must be used within a ConfirmationProvider");
   }
   return context;
 }
-

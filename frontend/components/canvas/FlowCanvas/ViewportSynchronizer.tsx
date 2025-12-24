@@ -7,3 +7,4 @@ export function ViewportSynchronizer({ viewport }: { viewport?: Viewport }) {
   useViewportSynchronizer(viewport);
   return null;
 }
+

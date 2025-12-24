@@ -11,3 +11,4 @@ export const statusClassMap: Record<string, string> = {
   FAILED: "bg-red-100 text-red-700",
 };
 
+

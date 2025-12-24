@@ -159,3 +159,4 @@ export function NodeConfigPanel({ node, onSave, onClose }: NodeConfigPanelProps)
 - The component file should be minimal and focused on rendering
 - All node type-specific logic is handled in the controller
 
+

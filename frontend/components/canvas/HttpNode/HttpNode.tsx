@@ -106,3 +106,4 @@ export function HttpNode({ data, selected }: NodeProps<HttpNodeData>) {
     </div>
   );
 }
+

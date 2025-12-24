@@ -106,3 +106,4 @@ export function Modal({ isOpen, onClose, title, children, size = "md" }: ModalPr
 - The component includes a useEffect for body scroll lock
 - Constants are extracted for better maintainability
 
+

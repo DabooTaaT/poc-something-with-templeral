@@ -84,3 +84,4 @@ export function HttpNode({ data, selected }: NodeProps<HttpNodeData>) {
 - The component is mostly presentational
 - Constants are extracted for better maintainability
 
+

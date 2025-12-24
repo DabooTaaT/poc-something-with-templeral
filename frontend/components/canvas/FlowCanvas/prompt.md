@@ -165,3 +165,4 @@ export function FlowCanvas({...}: FlowCanvasProps) {
 - All hooks are exported from controller.ts for potential reuse
 - The main component file should be minimal and focused on rendering
 
+

@@ -168,3 +168,4 @@ export default function Home() {
 - The page component should be minimal and focused on rendering
 - All constants and utilities are extracted for reusability
 
+

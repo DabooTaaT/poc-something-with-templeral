@@ -23,3 +23,4 @@ export function formatDuration(execution: Execution): string {
   return `${duration.toFixed(2)}s`;
 }
 
+

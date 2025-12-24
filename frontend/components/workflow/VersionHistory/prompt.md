@@ -164,3 +164,4 @@ export function VersionHistory({...}: VersionHistoryProps) {
 - The component file should be minimal and focused on rendering
 - Modal components are kept in the main component file as they're part of the UI structure
 
+
