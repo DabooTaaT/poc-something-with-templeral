@@ -1,0 +1,92 @@
+package models
+
+import "time"
+
+// Workflow represents a workflow definition in the database
+type Workflow struct {
+	ID        string    `json:"id" db:"id"`
+	Name      string    `json:"name" db:"name"`
+	DAGJson   string    `json:"dag_json" db:"dag_json"` // JSON string containing nodes and edges
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+	Version   *int      `json:"version,omitempty" db:"-"` // Current version number (not stored in DB, calculated)
+}
+
+// WorkflowVersion represents a historical version of a workflow
+type WorkflowVersion struct {
+	ID            string    `json:"id" db:"id"`
+	WorkflowID    string    `json:"workflowId" db:"workflow_id"`
+	VersionNumber int       `json:"versionNumber" db:"version_number"`
+	Name          string    `json:"name" db:"name"`
+	DAGJson       string    `json:"dag_json" db:"dag_json"` // JSON string containing nodes and edges
+	CreatedAt     time.Time `json:"createdAt" db:"created_at"`
+}
+
+// DAGStructure represents the structure of a workflow DAG
+type DAGStructure struct {
+	Nodes []Node `json:"nodes"`
+	Edges []Edge `json:"edges"`
+}
+
+// Node represents a workflow node
+type Node struct {
+	ID       string      `json:"id"`
+	Type     string      `json:"type"` // "start", "http", "code", "output"
+	Position Position    `json:"position"`
+	Data     interface{} `json:"data"`
+}
+
+// Edge represents a connection between nodes
+type Edge struct {
+	ID     string `json:"id"`
+	Source string `json:"source"`
+	Target string `json:"target"`
+}
+
+// Position represents node position on canvas
+type Position struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
+
+// StartNodeData represents data for start node
+type StartNodeData struct {
+	Label string `json:"label,omitempty"`
+}
+
+// HttpNodeData represents data for HTTP node
+type HttpNodeData struct {
+	URL     string            `json:"url"`
+	Method  string            `json:"method"`
+	Headers map[string]string `json:"headers,omitempty"`
+	Query   map[string]string `json:"query,omitempty"`
+	Body    interface{}       `json:"body,omitempty"`
+}
+
+// OutputNodeData represents data for output node
+type OutputNodeData struct {
+	Label string `json:"label,omitempty"`
+}
+
+// CodeNodeData represents data for code node
+type CodeNodeData struct {
+	Code  string `json:"code,omitempty"`
+	Label string `json:"label,omitempty"`
+}
+
+// WorkflowSummary is a lightweight view for history listings
+type WorkflowSummary struct {
+	ID            string            `json:"id" db:"id"`
+	Name          string            `json:"name" db:"name"`
+	UpdatedAt     time.Time         `json:"updatedAt" db:"updated_at"`
+	NodeCount     int               `json:"nodeCount" db:"node_count"`
+	EdgeCount     int               `json:"edgeCount" db:"edge_count"`
+	LastExecution *ExecutionSummary `json:"lastExecution,omitempty"`
+}
+
+// ExecutionSummary represents the latest execution metadata for a workflow
+type ExecutionSummary struct {
+	ID         string          `json:"id"`
+	Status     ExecutionStatus `json:"status"`
+	FinishedAt *time.Time      `json:"finishedAt,omitempty"`
+}
